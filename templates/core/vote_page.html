@@ -1,0 +1,107 @@
+{% extends 'core/base.html' %}
+
+{% block title %}Vote - {{ election.title }}{% endblock %}
+
+{% block content %}
+
+<h2 class="mb-4">{{ election.title }}</h2>
+
+<style>
+    .candidate-option {
+        cursor: pointer;
+        transition: 0.2s ease;
+        border-radius: 6px;
+    }
+
+    .candidate-option:hover {
+        background-color: #f8f9fa;
+    }
+
+    .candidate-img {
+        width: 50px;
+        height: 50px;
+        object-fit: cover;
+        border-radius: 50%;
+        margin-right: 15px;
+    }
+
+    .candidate-manifesto {
+        font-size: 0.85rem;
+        color: #6c757d;
+        margin: 0;
+    }
+</style>
+
+<form method="post">
+    {% csrf_token %}
+
+    {% for position in positions %}
+        <div class="card mb-3 shadow-sm">
+            <div class="card-header fw-semibold">
+                {{ position.name }}
+                {% if position.id in voted_positions %}
+                    <span class="badge bg-success ms-2">Already Voted</span>
+                {% endif %}
+            </div>
+
+            <div class="card-body py-2">
+
+                {% for candidate in position.candidate_set.all %}
+                    <label class="d-block candidate-option p-2 mb-2">
+
+                        <div class="d-flex align-items-center">
+
+                            <!-- Candidate Image -->
+                            {% if candidate.photo %}
+                                <img src="{{ candidate.photo.url }}"
+                                     alt="{{ candidate.user.username }}"
+                                     class="candidate-img">
+                            {% else %}
+                                <div class="candidate-img bg-secondary"></div>
+                            {% endif %}
+
+                            <!-- Candidate Info -->
+                            <div class="flex-grow-1">
+                                <strong>{{ candidate.user.username }}</strong>
+                                {% if candidate.manifesto %}
+                                    <p class="candidate-manifesto">
+                                        {{ candidate.manifesto }}
+                                    </p>
+                                {% endif %}
+                            </div>
+
+                            <!-- Radio Button -->
+                            <input 
+                                class="form-check-input ms-2"
+                                type="radio" 
+                                name="position_{{ position.id }}" 
+                                value="{{ candidate.id }}" 
+                                {% if position.id in voted_positions %}disabled{% endif %}
+                                required
+                            >
+
+                        </div>
+
+                    </label>
+                {% endfor %}
+
+            </div>
+        </div>
+    {% endfor %}
+
+    <div class="d-flex justify-content-between mt-3">
+
+    <button type="submit" class="btn btn-primary">
+        Submit Vote
+    </button>
+
+    <a href="{% url 'election_results' election.id %}" 
+       class="btn btn-outline-success">
+        View Results
+    </a>
+
+    </div>
+
+</form>
+
+{% endblock %}

@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}EduVoteGH{% endblock %}</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary mb-4">
+    <div class="container-fluid">
+
+        <!-- Brand -->
+        <a class="navbar-brand fw-bold" href="#">
+            EduVoteGH
+            {% if institution %}
+                <span class="ms-2 small text-light">
+                    | {{ institution.name }}
+                </span>
+            {% endif %}
+        </a>
+
+        <!-- Navbar Toggle (Mobile Friendly) -->
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse"
+                data-bs-target="#navbarNav" aria-controls="navbarNav"
+                aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+
+        <!-- Navbar Content -->
+        <div class="collapse navbar-collapse" id="navbarNav">
+
+            <ul class="navbar-nav me-auto">
+
+                {% if user.is_authenticated %}
+                
+                    <!-- Admin Panel Link (ONLY STAFF) -->
+                    {% if request.user.is_staff %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'admin_panel' %}">
+                            Admin Panel
+                        </a>
+                    </li>
+                    {% endif %}
+
+                {% endif %}
+
+            </ul>
+
+<!-- Right Side -->
+<div class="d-flex align-items-center">
+
+    {% if user.is_authenticated %}
+
+        <!-- Election Status Badge -->
+        {% if active_election %}
+            <span class="badge bg-success me-3">
+                🟢 Active Election
+            </span>
+        {% else %}
+            <span class="badge bg-danger me-3">
+                🔴 No Active Election
+            </span>
+        {% endif %}
+
+        <!-- Home Button (Role-Based Routing) -->
+        {% if user.is_staff %}
+            <a class="btn btn-outline-light me-2" href="{% url 'admin_panel' %}">
+                Home
+            </a>
+        {% else %}
+            <a class="btn btn-outline-light me-2" href="{% url 'vote_dashboard' %}">
+                Home
+            </a>
+        {% endif %}
+
+        <!-- Welcome Text -->
+        <span class="navbar-text me-3">
+            Welcome, {{ user.username }}
+        </span>
+
+        <!-- Logout -->
+        <a class="btn btn-outline-light" href="{% url 'voter_logout' %}">
+            Logout
+        </a>
+
+    {% endif %}
+
+</div>
+
+        </div>
+    </div>
+</nav>
+
+    <div class="container">
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-success">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+
+        {% block content %}{% endblock %}
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

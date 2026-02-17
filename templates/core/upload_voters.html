@@ -1,0 +1,13 @@
+{% extends 'core/base.html' %}
+
+{% block title %}Upload Voters{% endblock %}
+
+{% block content %}
+<h2 class="mb-4">Upload Voters via CSV</h2>
+
+<form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit" class="btn btn-primary">Upload</button>
+</form>
+{% endblock %}

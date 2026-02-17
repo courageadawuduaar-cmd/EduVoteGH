@@ -1,0 +1,250 @@
+{% extends 'core/base.html' %}
+
+{% block title %}Results - {{ election.title }}{% endblock %}
+
+{% block head %}
+{{ block.super }}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+    /* 🔹 Ensure container aligns properly */
+    .container {
+        padding-left: 12px !important;
+        padding-right: 12px !important;
+    }
+
+    /* 🔹 Reduce overall card spacing */
+    .card {
+        margin-bottom: 18px !important;
+        border-radius: 8px;
+    }
+
+    /* 🔹 Make headers compact */
+    .card-header {
+        padding: 8px 12px !important;
+        font-size: 0.95rem;
+    }
+
+    /* 🔹 Reduce card body padding */
+    .card-body {
+        padding: 10px 12px !important;
+    }
+
+    /* 🔹 Remove Bootstrap row negative margins (fix alignment issue) */
+    .row {
+        margin-left: 0 !important;
+        margin-right: 0 !important;
+    }
+
+    /* 🔹 Reduce total votes card text size */
+    .card-body h5 {
+        font-size: 0.95rem;
+        margin-bottom: 4px;
+    }
+
+    .card-body h3 {
+        font-size: 1.4rem;
+        margin-bottom: 0;
+    }
+
+    /* 🔹 Candidate list tighter spacing */
+    .d-flex.align-items-center {
+        margin-bottom: 10px !important;
+    }
+
+    /* 🔹 Candidate image */
+    .candidate-img {
+        width: 45px;
+        height: 45px;
+        object-fit: cover;
+        border-radius: 50%;
+    }
+
+    /* 🔹 Small name spacing */
+    h6 {
+        font-size: 0.85rem;
+        margin: 0;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<h2 class="mb-4 text-center text-md-start">
+    {{ election.title }} - Results
+</h2>
+
+<!-- 🔥 TOTAL VOTES -->
+<div class="card mb-4 shadow-sm">
+    <div class="card-body text-center">
+        <h5>Total Votes Cast</h5>
+        <h3 id="totalVotesDisplay" class="text-primary mb-0">0</h3>
+    </div>
+</div>
+
+{% for item in results %}
+<div class="card mb-4 shadow-sm">
+    <div class="card-header fw-bold text-center text-md-start">
+        {{ item.position.name }}
+    </div>
+
+<div class="card-body">
+
+    <div class="row">
+
+        <!-- LEFT SIDE: Candidate List -->
+        <div class="col-md-4 mb-4">
+
+            {% for candidate in item.candidates %}
+            <div class="d-flex align-items-center mb-3">
+
+                {% if candidate.photo %}
+                    <img src="{{ candidate.photo.url }}"
+                         alt="{{ candidate.user.username }}"
+                         style="width:45px;height:45px;object-fit:cover;border-radius:50%;margin-right:10px;
+                         {% if not item.is_tie and item.winner and candidate.id == item.winner.id %}
+                            border:2px solid #28a745;
+                        {% endif %}
+                {% else %}
+                    <div style="width:45px;height:45px;background:#ccc;border-radius:50%;margin-right:10px;"></div>
+                {% endif %}
+
+                <div>
+                    <div style="font-size:0.9rem;font-weight:600;">
+                        {{ candidate.user.username }}
+                    </div>
+                    <div style="font-size:0.8rem;">
+                        {{ candidate.votes_count }} votes
+                        {% if not item.is_tie and item.winner and candidate.id == item.winner.id %}
+                            <span style="color:#28a745;font-weight:bold;">🏆</span>
+                        {% endif %}
+                    </div>
+                </div>
+
+            </div>
+            {% endfor %}
+
+        </div>
+
+        
+
+        <!-- RIGHT SIDE: Chart -->
+        <div class="col-md-8">
+            <canvas id="chart_{{ item.position.id }}"></canvas>
+        </div>
+
+    </div>
+</div>
+
+        <!-- ✅ Chart -->
+
+<script>
+    const canvas{{ item.position.id }} = document.getElementById('chart_{{ item.position.id }}');
+    canvas{{ item.position.id }}.height = {{ item.candidates|length }} * 25;
+    const ctx{{ item.position.id }} = canvas{{ item.position.id }}.getContext('2d');
+
+    const labels{{ item.position.id }} = [
+        {% for candidate in item.candidates %}
+            "{{ candidate.user.username }}",
+        {% endfor %}
+    ];
+
+    let votes{{ item.position.id }} = [
+        {% for candidate in item.candidates %}
+            {{ candidate.votes_count }},
+        {% endfor %}
+    ];
+
+    function getColors(votes) {
+        const maxVotes = Math.max(...votes);
+        return votes.map(v =>
+            v === maxVotes && maxVotes > 0
+            ? 'rgba(40, 167, 69, 0.8)'
+            : 'rgba(54, 162, 235, 0.7)'
+        );
+    }
+
+    const chart{{ item.position.id }} = new Chart(ctx{{ item.position.id }}, {
+        type: 'bar',
+        data: {
+            labels: labels{{ item.position.id }},
+            datasets: [{
+                label: 'Votes',
+                data: votes{{ item.position.id }},
+                backgroundColor: getColors(votes{{ item.position.id }}),
+                borderWidth: 1
+            }]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true,
+            plugins: {
+                legend: { display: false }
+            },
+            scales: {
+                x: { beginAtZero: true, precision: 0 },
+                y: { ticks: { autoSkip: false } }
+            }
+        }
+    });
+
+    // 🔥 Live Update
+    setInterval(() => {
+        fetch("{% url 'results_data' election.id item.position.id %}")
+            .then(response => response.json())
+            .then(data => {
+
+                votes{{ item.position.id }} = data.votes;
+
+                chart{{ item.position.id }}.data.datasets[0].data = votes{{ item.position.id }};
+                chart{{ item.position.id }}.data.datasets[0].backgroundColor = getColors(votes{{ item.position.id }});
+                chart{{ item.position.id }}.update();
+
+                document.getElementById("totalVotesDisplay").innerText = data.total_votes;
+            });
+    }, 5000);
+</script>
+
+    </div>
+</div>
+{% endfor %}
+<!-- 🔐 OFFICIAL CERTIFICATION FOOTER -->
+<hr class="mt-5">
+
+<div class="card mt-4 shadow-sm border-0">
+    <div class="card-body text-center">
+
+        <h5 class="fw-bold mb-2">Official Election Certification</h5>
+
+        <p class="mb-1">
+            This is to certify that the above results represent the official
+            outcome of the election conducted under the supervision of 
+            EduVoteGH.
+        </p>
+
+        <p class="mb-1">
+            Election: <strong>{{ election.title }}</strong>
+        </p>
+
+        <p class="mb-1">
+            Date Generated: <strong>{% now "F d, Y H:i" %}</strong>
+        </p>
+
+        <p class="mb-0">
+            Status:
+            {% if election.end_time < now %}
+                <span class="text-success fw-bold">Final & Certified</span>
+            {% else %}
+                <span class="text-warning fw-bold">Provisional (Election Ongoing)</span>
+            {% endif %}
+        </p>
+
+        <hr>
+
+        <small class="text-muted">
+            Generated and secured by EduVoteGH |
+            Tamper-proof vote tracking enabled
+        </small>
+
+    </div>
+</div>
+{% endblock %}

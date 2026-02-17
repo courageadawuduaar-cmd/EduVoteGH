@@ -1,0 +1,18 @@
+{% extends 'core/base.html' %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<h2 class="mb-4">Active Elections</h2>
+{% if elections %}
+    <div class="list-group">
+    {% for election in elections %}
+        <a href="{% url 'vote_page' election.id %}" class="list-group-item list-group-item-action">
+            {{ election.title }}
+        </a>
+    {% endfor %}
+    </div>
+{% else %}
+    <p>No active elections at the moment.</p>
+{% endif %}
+{% endblock %}

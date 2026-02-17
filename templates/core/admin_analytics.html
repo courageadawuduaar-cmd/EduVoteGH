@@ -1,0 +1,79 @@
+{% extends 'core/base.html' %}
+{% block title %}Dashboard Analytics{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+
+    <h2 class="fw-bold mb-4">System Analytics</h2>
+
+    <!-- Summary Cards -->
+    <div class="row mb-4">
+
+        <div class="col-md-3">
+            <div class="card shadow-sm border-0">
+                <div class="card-body">
+                    <h6 class="text-muted">Total Elections</h6>
+                    <h3 class="fw-bold">{{ total_elections }}</h3>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card shadow-sm border-0">
+                <div class="card-body">
+                    <h6 class="text-muted">Total Voters</h6>
+                    <h3 class="fw-bold">{{ total_voters }}</h3>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card shadow-sm border-0">
+                <div class="card-body">
+                    <h6 class="text-muted">Total Votes Cast</h6>
+                    <h3 class="fw-bold">{{ total_votes }}</h3>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card shadow-sm border-0">
+                <div class="card-body">
+                    <h6 class="text-muted">Active Election</h6>
+                    <h6 class="fw-bold text-success">
+                        {% if active_election %}
+                            {{ active_election.title }}
+                        {% else %}
+                            None
+                        {% endif %}
+                    </h6>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Turnout Section -->
+    <div class="card shadow border-0">
+        <div class="card-body">
+            <h5 class="fw-bold mb-3">Turnout by Election</h5>
+
+            {% for item in turnout_data %}
+                <div class="mb-3">
+                    <strong>{{ item.title }}</strong>
+                    <div class="progress" style="height: 8px;">
+                        <div class="progress-bar bg-info"
+                             style="width: {{ item.turnout }}%;">
+                        </div>
+                    </div>
+                    <small>{{ item.turnout }}%</small>
+                </div>
+            {% empty %}
+                <p class="text-muted">No elections available.</p>
+            {% endfor %}
+
+        </div>
+    </div>
+
+</div>
+{% endblock %}
