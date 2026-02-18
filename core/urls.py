@@ -13,6 +13,7 @@ urlpatterns = [
     path('control/logs/', views.admin_logs, name='admin_logs'),
     path('control/analytics/', views.admin_analytics, name='admin_analytics'),
     path('results/<int:election_id>/', views.election_results, name='election_results'),
+    path('export-results/<int:election_id>/', views.export_results_pdf, name='export_results_pdf'),
     path('upload-voters/', views.upload_voters, name='upload_voters'),
     path(
     'results-data/<int:election_id>/<int:position_id>/',

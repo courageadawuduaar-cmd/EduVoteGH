@@ -7,6 +7,10 @@ from pathlib import Path
 import os
 import dj_database_url
 
+os.environ['CLOUDINARY_CLOUD_NAME'] = 'your_cloud_name'
+os.environ['CLOUDINARY_API_KEY'] = 'your_api_key'
+os.environ['CLOUDINARY_API_SECRET'] = 'your_api_secret'
+
 # -------------------------------------------------
 # Base Directory
 # -------------------------------------------------
@@ -14,23 +18,35 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 
 # -------------------------------------------------
-# Security Settings
+# Security & Environment Settings
 # -------------------------------------------------
 SECRET_KEY = 'django-insecure-p63i-q!j%$-sw92iy)+fp^ci@bm@69c)dnhsgkl14wd-cs5qh6'
 
-DEBUG = False
+# Detect if running on Render
+RENDER = os.environ.get("RENDER") == "true"
+
+# DEBUG True locally, False on Render
+DEBUG = not RENDER
 
 ALLOWED_HOSTS = [
     "eduvotegh.onrender.com",
+    "127.0.0.1",
+    "localhost",
 ]
 
 CSRF_TRUSTED_ORIGINS = [
     "https://eduvotegh.onrender.com",
 ]
 
-CSRF_COOKIE_SECURE = True
-SESSION_COOKIE_SECURE = True
-SECURE_SSL_REDIRECT = True
+# Enable HTTPS settings ONLY in production (Render)
+if RENDER:
+    CSRF_COOKIE_SECURE = True
+    SESSION_COOKIE_SECURE = True
+    SECURE_SSL_REDIRECT = True
+else:
+    CSRF_COOKIE_SECURE = False
+    SESSION_COOKIE_SECURE = False
+    SECURE_SSL_REDIRECT = False
 
 
 # -------------------------------------------------
@@ -43,6 +59,9 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+
+    'cloudinary',
+    'cloudinary_storage',
 
     'core',
 ]
@@ -59,7 +78,6 @@ MIDDLEWARE = [
 ]
 
 ROOT_URLCONF = 'config.urls'
-
 WSGI_APPLICATION = 'config.wsgi.application'
 
 
@@ -84,13 +102,24 @@ TEMPLATES = [
 ]
 
 
-DATABASES = {
-    'default': dj_database_url.config(
-        default=os.environ.get('DATABASE_URL'),
-        conn_max_age=600,
-        ssl_require=True
-    )
-}
+# -------------------------------------------------
+# Database
+# -------------------------------------------------
+if RENDER:
+    DATABASES = {
+        'default': dj_database_url.config(
+            default=os.environ.get('DATABASE_URL'),
+            conn_max_age=600,
+            ssl_require=True
+        )
+    }
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
 
 
 # -------------------------------------------------
@@ -122,7 +151,7 @@ USE_TZ = True
 
 
 # -------------------------------------------------
-# Static & Media Files
+# Static Files
 # -------------------------------------------------
 STATIC_URL = '/static/'
 
@@ -134,6 +163,10 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
+
+# -------------------------------------------------
+# Media Files
+# -------------------------------------------------
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
@@ -149,3 +182,14 @@ LOGIN_URL = 'voter_login'
 # -------------------------------------------------
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 DEFAULT_FROM_EMAIL = 'admin@electionsystem.com'
+
+import cloudinary
+
+if RENDER:
+    CLOUDINARY_STORAGE = {
+        'CLOUD_NAME': os.environ.get('CLOUDINARY_CLOUD_NAME'),
+        'API_KEY': os.environ.get('CLOUDINARY_API_KEY'),
+        'API_SECRET': os.environ.get('CLOUDINARY_API_SECRET'),
+    }
+
+    DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'

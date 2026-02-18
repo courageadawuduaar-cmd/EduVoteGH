@@ -34,6 +34,15 @@ from django.utils import timezone
 from django.contrib.admin.views.decorators import staff_member_required
 from .models import Voter
 
+from reportlab.lib.pagesizes import A4
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from reportlab.lib import colors
+from reportlab.lib.styles import getSampleStyleSheet
+from django.http import HttpResponse
+from django.shortcuts import get_object_or_404
+from datetime import datetime
+
+
 def voter_login(request):
     if request.method == "POST":
         form = VoterLoginForm(request, data=request.POST)
@@ -440,3 +449,51 @@ def admin_analytics(request):
     }
 
     return render(request, "core/admin_analytics.html", context)
+
+
+def export_results_pdf(request, election_id):
+    election = get_object_or_404(Election, id=election_id)
+    positions = Position.objects.filter(election=election)
+
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="{election.name}_Official_Results.pdf"'
+
+    doc = SimpleDocTemplate(response, pagesize=A4)
+    elements = []
+
+    styles = getSampleStyleSheet()
+
+    # Title
+    elements.append(Paragraph(f"<b>{election.name} - Official Results</b>", styles['Title']))
+    elements.append(Spacer(1, 20))
+    elements.append(Paragraph(f"Generated on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", styles['Normal']))
+    elements.append(Spacer(1, 20))
+
+    for position in positions:
+        elements.append(Paragraph(f"<b>Position: {position.name}</b>", styles['Heading2']))
+        elements.append(Spacer(1, 10))
+
+        candidates = Candidate.objects.filter(position=position).order_by('-votes')
+
+        data = [["Candidate Name", "Votes"]]
+
+        for candidate in candidates:
+            data.append([candidate.name, candidate.votes])
+
+        table = Table(data)
+        table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+        ]))
+
+        elements.append(table)
+        elements.append(Spacer(1, 30))
+
+    elements.append(Paragraph("__________________________", styles['Normal']))
+    elements.append(Paragraph("Election Officer Signature", styles['Normal']))
+
+    doc.build(elements)
+
+    return response
