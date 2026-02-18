@@ -7,6 +7,12 @@ from pathlib import Path
 import os
 import dj_database_url
 
+
+import cloudinary
+import cloudinary.uploader
+import cloudinary.api
+
+
 # -------------------------------------------------
 # Base Directory
 # -------------------------------------------------
@@ -158,13 +164,6 @@ STATICFILES_DIRS = [
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
-
-
-# -------------------------------------------------
-# Media Files
-# -------------------------------------------------
-MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'
 
 
 # -------------------------------------------------
