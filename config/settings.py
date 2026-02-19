@@ -7,12 +7,6 @@ from pathlib import Path
 import os
 import dj_database_url
 
-
-import cloudinary
-import cloudinary.uploader
-import cloudinary.api
-
-
 # -------------------------------------------------
 # Base Directory
 # -------------------------------------------------
@@ -22,8 +16,6 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # -------------------------------------------------
 # Security & Environment Settings
 # -------------------------------------------------
-
-# Detect if running on Render
 SECRET_KEY = os.environ.get("SECRET_KEY", "dev-secret-key")
 
 DEBUG = os.environ.get("DEBUG", "False") == "True"
@@ -38,7 +30,6 @@ CSRF_TRUSTED_ORIGINS = [
     "https://eduvotegh.onrender.com",
 ]
 
-# Production Security
 if not DEBUG:
     CSRF_COOKIE_SECURE = True
     SESSION_COOKIE_SECURE = True
@@ -55,10 +46,15 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'core',
+
+    # Third Party
     'cloudinary',
     'cloudinary_storage',
+
+    # Local Apps
+    'core',
 ]
+
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -70,6 +66,7 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
+
 
 ROOT_URLCONF = 'config.urls'
 WSGI_APPLICATION = 'config.wsgi.application'
@@ -112,18 +109,10 @@ DATABASES = {
 # Password Validation
 # -------------------------------------------------
 AUTH_PASSWORD_VALIDATORS = [
-    {
-        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
-    },
+    {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
 ]
 
 
@@ -137,17 +126,27 @@ USE_TZ = True
 
 
 # -------------------------------------------------
-# Static Files
+# Static Files (WhiteNoise)
 # -------------------------------------------------
 STATIC_URL = '/static/'
-
-STATICFILES_DIRS = [
-    BASE_DIR / "static",
-]
-
+STATICFILES_DIRS = [BASE_DIR / "static"]
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+
+
+# -------------------------------------------------
+# Media Files (Cloudinary)
+# -------------------------------------------------
+CLOUDINARY_STORAGE = {
+    'CLOUD_NAME': os.environ.get("CLOUDINARY_CLOUD_NAME"),
+    'API_KEY': os.environ.get("CLOUDINARY_API_KEY"),
+    'API_SECRET': os.environ.get("CLOUDINARY_API_SECRET"),
+}
+
+DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
+
+MEDIA_URL = '/media/'
 
 
 # -------------------------------------------------
@@ -157,17 +156,13 @@ LOGIN_URL = 'voter_login'
 
 
 # -------------------------------------------------
-# Email (Console for now)
+# Email
 # -------------------------------------------------
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 DEFAULT_FROM_EMAIL = 'admin@electionsystem.com'
 
 
-STORAGES = {
-    "default": {
-        "BACKEND": "cloudinary_storage.storage.MediaCloudinaryStorage",
-    },
-    "staticfiles": {
-        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
-    },
-}
+# -------------------------------------------------
+# Default Primary Key
+# -------------------------------------------------
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
