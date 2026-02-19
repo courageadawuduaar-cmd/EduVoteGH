@@ -22,13 +22,11 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # -------------------------------------------------
 # Security & Environment Settings
 # -------------------------------------------------
-SECRET_KEY = 'django-insecure-p63i-q!j%$-sw92iy)+fp^ci@bm@69c)dnhsgkl14wd-cs5qh6'
 
 # Detect if running on Render
-RENDER = os.environ.get("RENDER") == "true"
+SECRET_KEY = os.environ.get("SECRET_KEY", "dev-secret-key")
 
-# DEBUG True locally, False on Render
-DEBUG = not RENDER
+DEBUG = os.environ.get("DEBUG", "False") == "True"
 
 ALLOWED_HOSTS = [
     "eduvotegh.onrender.com",
@@ -40,15 +38,11 @@ CSRF_TRUSTED_ORIGINS = [
     "https://eduvotegh.onrender.com",
 ]
 
-# Enable HTTPS settings ONLY in production (Render)
-if RENDER:
+# Production Security
+if not DEBUG:
     CSRF_COOKIE_SECURE = True
     SESSION_COOKIE_SECURE = True
     SECURE_SSL_REDIRECT = True
-else:
-    CSRF_COOKIE_SECURE = False
-    SESSION_COOKIE_SECURE = False
-    SECURE_SSL_REDIRECT = False
 
 
 # -------------------------------------------------
@@ -105,21 +99,13 @@ TEMPLATES = [
 # -------------------------------------------------
 # Database
 # -------------------------------------------------
-if RENDER:
-    DATABASES = {
-        'default': dj_database_url.config(
-            default=os.environ.get('DATABASE_URL'),
-            conn_max_age=600,
-            ssl_require=True
-        )
-    }
-else:
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': BASE_DIR / 'db.sqlite3',
-        }
-    }
+DATABASES = {
+    'default': dj_database_url.config(
+        default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}",
+        conn_max_age=600,
+        ssl_require=not DEBUG
+    )
+}
 
 
 # -------------------------------------------------
