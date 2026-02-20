@@ -41,7 +41,8 @@ from reportlab.lib.styles import getSampleStyleSheet
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from datetime import datetime
-
+from reportlab.platypus import PageBreak
+from reportlab.lib.units import inch
 
 def voter_login(request):
     if request.method == "POST":
@@ -450,49 +451,121 @@ def admin_analytics(request):
 
     return render(request, "core/admin_analytics.html", context)
 
-
 def export_results_pdf(request, election_id):
     election = get_object_or_404(Election, id=election_id)
     positions = Position.objects.filter(election=election)
 
     response = HttpResponse(content_type='application/pdf')
-    response['Content-Disposition'] = f'attachment; filename="{election.name}_Official_Results.pdf"'
+    response['Content-Disposition'] = (
+        f'attachment; filename="{election.title}_Official_Results.pdf"'
+    )
 
-    doc = SimpleDocTemplate(response, pagesize=A4)
+    doc = SimpleDocTemplate(
+        response,
+        pagesize=A4,
+        rightMargin=40,
+        leftMargin=40,
+        topMargin=60,
+        bottomMargin=40,
+    )
+
     elements = []
-
     styles = getSampleStyleSheet()
 
-    # Title
-    elements.append(Paragraph(f"<b>{election.name} - Official Results</b>", styles['Title']))
-    elements.append(Spacer(1, 20))
-    elements.append(Paragraph(f"Generated on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", styles['Normal']))
-    elements.append(Spacer(1, 20))
+    # -------------------------------------------------
+    # Title Section
+    # -------------------------------------------------
+    elements.append(
+        Paragraph(f"<b>{election.title}</b>", styles['Title'])
+    )
+    elements.append(Spacer(1, 12))
 
+    elements.append(
+        Paragraph("Official Election Results", styles['Heading2'])
+    )
+    elements.append(Spacer(1, 12))
+
+    elements.append(
+        Paragraph(
+            f"Generated on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+            styles['Normal']
+        )
+    )
+    elements.append(Spacer(1, 30))
+
+    # -------------------------------------------------
+    # Results by Position
+    # -------------------------------------------------
     for position in positions:
-        elements.append(Paragraph(f"<b>Position: {position.name}</b>", styles['Heading2']))
-        elements.append(Spacer(1, 10))
 
-        candidates = Candidate.objects.filter(position=position).order_by('-votes')
+        elements.append(
+            Paragraph(f"<b>Position: {position.name}</b>", styles['Heading3'])
+        )
+        elements.append(Spacer(1, 15))
 
-        data = [["Candidate Name", "Votes"]]
+        # ✅ Correct vote counting
+        candidates = Candidate.objects.filter(
+            position=position
+        ).annotate(
+            total_votes=Count('vote')
+        ).order_by('-total_votes')
 
-        for candidate in candidates:
-            data.append([candidate.name, candidate.votes])
+        if not candidates.exists():
+            elements.append(
+                Paragraph("No candidates available.", styles['Normal'])
+            )
+            elements.append(Spacer(1, 20))
+            continue
 
-        table = Table(data)
+        total_votes = sum(candidate.total_votes for candidate in candidates)
+
+        data = [["Candidate Name", "Votes", "Percentage"]]
+
+        for index, candidate in enumerate(candidates):
+
+            percentage = (
+                round((candidate.total_votes / total_votes) * 100, 2)
+                if total_votes > 0 else 0
+            )
+
+            name = candidate.user.get_full_name() or candidate.user.username
+
+            # Highlight winner
+            if index == 0 and candidate.total_votes > 0:
+                name = f"{candidate.user.get_full_name() or candidate.user.username} (Winner)"
+
+            data.append([name, candidate.total_votes, f"{percentage}%"])
+
+        table = Table(data, colWidths=[3*inch, 1.2*inch, 1.2*inch])
+
         table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+            ('BACKGROUND', (0, 0), (-1, 0), colors.darkblue),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-            ('GRID', (0, 0), (-1, -1), 1, colors.black),
-            ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+            ('ALIGN', (1, 1), (-1, -1), 'CENTER'),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.whitesmoke),
         ]))
 
         elements.append(table)
-        elements.append(Spacer(1, 30))
+        elements.append(Spacer(1, 35))
 
-    elements.append(Paragraph("__________________________", styles['Normal']))
-    elements.append(Paragraph("Election Officer Signature", styles['Normal']))
+    # -------------------------------------------------
+    # Signature Section
+    # -------------------------------------------------
+    elements.append(Spacer(1, 40))
+    elements.append(
+        Paragraph("______________________________", styles['Normal'])
+    )
+    elements.append(
+        Paragraph("Returning Officer Signature", styles['Normal'])
+    )
+    elements.append(Spacer(1, 10))
+    elements.append(
+        Paragraph(
+            f"Date: {datetime.now().strftime('%Y-%m-%d')}",
+            styles['Normal']
+        )
+    )
 
     doc.build(elements)
 

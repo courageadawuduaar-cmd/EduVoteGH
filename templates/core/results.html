@@ -73,6 +73,13 @@
     {{ election.title }} - Results
 </h2>
 
+<div class="d-flex justify-content-center justify-content-md-end mb-3">
+    <a href="{% url 'export_results_pdf' election.id %}"
+       class="btn btn-danger shadow-sm">
+        📄 Download Official PDF
+    </a>
+</div>
+
 <!-- 🔥 TOTAL VOTES -->
 <div class="card mb-4 shadow-sm">
     <div class="card-body text-center">
