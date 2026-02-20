@@ -166,3 +166,27 @@ DEFAULT_FROM_EMAIL = 'admin@electionsystem.com'
 # Default Primary Key
 # -------------------------------------------------
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+
+
+# -------------------------------------------------
+# BACKBLAZE B2 STORAGE (PRIVATE BUCKET - EU REGION)
+# -------------------------------------------------
+
+INSTALLED_APPS += ['storages']
+
+AWS_ACCESS_KEY_ID = os.environ.get("B2_KEY_ID")
+AWS_SECRET_ACCESS_KEY = os.environ.get("B2_APPLICATION_KEY")
+AWS_STORAGE_BUCKET_NAME = os.environ.get("B2_BUCKET_NAME")
+
+AWS_S3_REGION_NAME = "eu-central-003"
+AWS_S3_ENDPOINT_URL = "https://s3.eu-central-003.backblazeb2.com"
+
+AWS_S3_FILE_OVERWRITE = False
+AWS_DEFAULT_ACL = None
+
+# Private bucket settings
+AWS_QUERYSTRING_AUTH = True
+AWS_QUERYSTRING_EXPIRE = 3600  # 1 hour
+
+DEFAULT_FILE_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"
