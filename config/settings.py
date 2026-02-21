@@ -158,6 +158,8 @@ if not DEBUG:
     AWS_S3_REGION_NAME = "eu-central-003"
     AWS_S3_ENDPOINT_URL = "https://s3.eu-central-003.backblazeb2.com"
 
+    AWS_S3_SIGNATURE_VERSION = "s3v4"
+
     AWS_S3_FILE_OVERWRITE = False
     AWS_DEFAULT_ACL = None
 
