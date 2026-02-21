@@ -5,6 +5,9 @@ Local Development Configuration
 
 from pathlib import Path
 import os
+import cloudinary
+import cloudinary.uploader
+import cloudinary.api
 
 # -------------------------------------------------
 # Base Directory
@@ -143,27 +146,15 @@ DEFAULT_FROM_EMAIL = 'admin@electionsystem.com'
 # -------------------------------------------------
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-
-# -------------------------------------------------
-# BACKBLAZE B2 STORAGE (PRODUCTION ONLY)
-# -------------------------------------------------
-
 if not DEBUG:
-    INSTALLED_APPS += ['storages']
+    INSTALLED_APPS += [
+        'cloudinary',
+        'cloudinary_storage',
+    ]
 
-    AWS_ACCESS_KEY_ID = os.environ.get("B2_KEY_ID")
-    AWS_SECRET_ACCESS_KEY = os.environ.get("B2_APPLICATION_KEY")
-    AWS_STORAGE_BUCKET_NAME = os.environ.get("B2_BUCKET_NAME")
+    DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
 
-    AWS_S3_REGION_NAME = "eu-central-003"
-    AWS_S3_ENDPOINT_URL = "https://s3.eu-central-003.backblazeb2.com"
-
-    AWS_S3_SIGNATURE_VERSION = "s3v4"
-
-    AWS_S3_FILE_OVERWRITE = False
-    AWS_DEFAULT_ACL = None
-
-    AWS_QUERYSTRING_AUTH = True
-    AWS_QUERYSTRING_EXPIRE = 3600
-
-    DEFAULT_FILE_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"
+    CLOUDINARY_STORAGE = {
+        'CLOUD_NAME': os.environ.get('CLOUDINARY_CLOUD_NAME'),
+        'API_KEY': os.environ.get('CLOUDINARY_API_KEY'),
+        'API_SECRET': os.environ.get('CLOUDINARY_API_SECRET'),
