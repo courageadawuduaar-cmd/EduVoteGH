@@ -122,13 +122,6 @@ STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 
 # -------------------------------------------------
-# Media Files (LOCAL STORAGE)
-# -------------------------------------------------
-MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / "media"
-
-
-# -------------------------------------------------
 # Authentication
 # -------------------------------------------------
 LOGIN_URL = 'voter_login'
@@ -146,7 +139,17 @@ DEFAULT_FROM_EMAIL = 'admin@electionsystem.com'
 # -------------------------------------------------
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-if not DEBUG:
+# -------------------------------------------------
+# Media Files
+# -------------------------------------------------
+
+if DEBUG:
+    # Local development
+    MEDIA_URL = '/media/'
+    MEDIA_ROOT = BASE_DIR / "media"
+
+else:
+    # Production (Render)
     INSTALLED_APPS += [
         'cloudinary',
         'cloudinary_storage',
@@ -154,8 +157,12 @@ if not DEBUG:
 
     DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
 
+    CLOUD_NAME = os.environ.get('CLOUDINARY_CLOUD_NAME')
+
     CLOUDINARY_STORAGE = {
-        'CLOUD_NAME': os.environ.get('CLOUDINARY_CLOUD_NAME'),
+        'CLOUD_NAME': CLOUD_NAME,
         'API_KEY': os.environ.get('CLOUDINARY_API_KEY'),
         'API_SECRET': os.environ.get('CLOUDINARY_API_SECRET'),
     }
+
+    MEDIA_URL = f"https://res.cloudinary.com/{CLOUD_NAME}/"
