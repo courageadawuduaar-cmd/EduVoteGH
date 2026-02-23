@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
+from cloudinary.models import CloudinaryField
 
 
 class Institution(models.Model):
@@ -68,7 +69,7 @@ class Candidate(models.Model):
     position = models.ForeignKey(Position, on_delete=models.CASCADE)
     election = models.ForeignKey(Election, on_delete=models.CASCADE)
     manifesto = models.TextField(blank=True)
-    photo = models.ImageField(upload_to='candidates/', blank=True, null=True)
+    photo = CloudinaryField('image', blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):

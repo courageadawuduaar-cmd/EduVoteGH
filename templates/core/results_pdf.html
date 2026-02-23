@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>{{ election.name }} - Official Results</title>
+
+    <style>
+        body {
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: 14px;
+            color: #333;
+            margin: 40px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 26px;
+            letter-spacing: 1px;
+        }
+
+        .generated-date {
+            font-size: 12px;
+            color: #777;
+            margin-top: 5px;
+        }
+
+        .position-section {
+            margin-bottom: 40px;
+        }
+
+        .position-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            border-bottom: 2px solid #444;
+            padding-bottom: 5px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th {
+            background-color: #2c3e50;
+            color: #ffffff;
+            padding: 10px;
+            text-align: left;
+            font-size: 13px;
+        }
+
+        td {
+            padding: 8px;
+            border: 1px solid #ccc;
+        }
+
+        tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+
+        .winner {
+            font-weight: bold;
+            color: #1e8449;
+        }
+
+        .footer {
+            margin-top: 60px;
+            text-align: center;
+            font-size: 12px;
+            color: #555;
+        }
+
+        .signature-line {
+            margin-top: 50px;
+            text-align: left;
+        }
+
+        .signature-line hr {
+            width: 250px;
+            margin-left: 0;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="header">
+        <h1>{{ election.name }} - Official Election Results</h1>
+        <div class="generated-date">
+            Generated on: {{ generated_on }}
+        </div>
+    </div>
+
+    {% for position in positions %}
+        <div class="position-section">
+            <div class="position-title">
+                Position: {{ position.name }}
+            </div>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Candidate</th>
+                        <th>Total Votes</th>
+                    </tr>
+                </thead>
+                <tbody>
+
+                    {% for candidate in position.candidates.all %}
+                        <tr>
+                            <td>
+                                {% if forloop.first %}
+                                    <span class="winner">
+                                        {{ candidate.name }} (Winner)
+                                    </span>
+                                {% else %}
+                                    {{ candidate.name }}
+                                {% endif %}
+                            </td>
+                            <td>{{ candidate.votes }}</td>
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="2">No candidates available</td>
+                        </tr>
+                    {% endfor %}
+
+                </tbody>
+            </table>
+        </div>
+    {% endfor %}
+
+    <div class="signature-line">
+        <hr>
+        Election Officer Signature
+    </div>
+
+    <div class="footer">
+        This document is computer generated and serves as the official result record.
+    </div>
+
+</body>
+</html>
