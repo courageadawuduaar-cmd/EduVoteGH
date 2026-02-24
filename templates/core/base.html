@@ -2,92 +2,95 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <!-- CRITICAL FOR MOBILE -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+
     <title>{% block title %}EduVoteGH{% endblock %}</title>
 
-    <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-
-    <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <style>
-        body {
+        html, body {
+            max-width: 100%;
             overflow-x: hidden;
+        }
+
+        img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        .container, .container-fluid {
+            overflow-x: hidden;
+        }
+
+        .table-responsive {
+            overflow-x: auto;
+        }
+
+        * {
+            word-wrap: break-word;
         }
     </style>
 </head>
 
 <body class="bg-light">
 
-<nav class="navbar navbar-expand-lg navbar-dark bg-primary mb-4 shadow-sm">
-    <div class="container-fluid px-3">
+<nav class="navbar navbar-expand-lg navbar-dark bg-primary shadow-sm">
+    <div class="container-fluid">
 
-        <!-- Brand -->
-        <a class="navbar-brand fw-bold fs-5" href="#">
+        <a class="navbar-brand fw-bold fs-5 text-truncate" href="#">
             EduVoteGH
             {% if institution %}
-                <span class="ms-2 small text-light">
+                <span class="small d-block d-md-inline">
                     | {{ institution.name }}
                 </span>
             {% endif %}
         </a>
 
-        <!-- Navbar Toggle -->
-        <button class="navbar-toggler" type="button" data-bs-toggle="collapse"
-                data-bs-target="#navbarNav" aria-controls="navbarNav"
-                aria-expanded="false" aria-label="Toggle navigation">
+        <button class="navbar-toggler" type="button"
+                data-bs-toggle="collapse"
+                data-bs-target="#navbarNav">
             <span class="navbar-toggler-icon"></span>
         </button>
 
-        <!-- Navbar Content -->
         <div class="collapse navbar-collapse" id="navbarNav">
 
             <ul class="navbar-nav me-auto">
-                {% if user.is_authenticated %}
-                    {% if request.user.is_staff %}
-                        <li class="nav-item">
-                            <a class="nav-link" href="{% url 'admin_panel' %}">
-                                Admin Panel
-                            </a>
-                        </li>
-                    {% endif %}
+                {% if user.is_authenticated and request.user.is_staff %}
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'admin_panel' %}">
+                        Admin Panel
+                    </a>
+                </li>
                 {% endif %}
             </ul>
 
-            <!-- Right Side -->
             {% if user.is_authenticated %}
-            <div class="d-flex align-items-center flex-wrap gap-2 mt-3 mt-lg-0">
+            <div class="d-flex flex-column flex-lg-row gap-2 mt-3 mt-lg-0">
 
-                <!-- Election Status -->
                 {% if active_election %}
-                    <span class="badge bg-success">
-                        🟢 Active Election
-                    </span>
+                    <span class="badge bg-success text-center">🟢 Active Election</span>
                 {% else %}
-                    <span class="badge bg-danger">
-                        🔴 No Active Election
-                    </span>
+                    <span class="badge bg-danger text-center">🔴 No Active Election</span>
                 {% endif %}
 
-                <!-- Home Button -->
                 {% if user.is_staff %}
-                    <a class="btn btn-outline-light btn-sm" href="{% url 'admin_panel' %}">
+                    <a class="btn btn-outline-light btn-sm w-100 w-lg-auto"
+                       href="{% url 'admin_panel' %}">
                         Home
                     </a>
                 {% else %}
-                    <a class="btn btn-outline-light btn-sm" href="{% url 'vote_dashboard' %}">
+                    <a class="btn btn-outline-light btn-sm w-100 w-lg-auto"
+                       href="{% url 'vote_dashboard' %}">
                         Home
                     </a>
                 {% endif %}
 
-                <!-- Welcome Text (Hidden on small screens) -->
-                <span class="navbar-text text-white d-none d-md-inline">
-                    Welcome, {{ user.username }}
-                </span>
-
-                <!-- Logout -->
-                <a class="btn btn-light btn-sm" href="{% url 'voter_logout' %}">
+                <a class="btn btn-light btn-sm w-100 w-lg-auto"
+                   href="{% url 'voter_logout' %}">
                     Logout
                 </a>
 
@@ -98,11 +101,11 @@
     </div>
 </nav>
 
-<div class="container-fluid px-3 px-md-4">
+<div class="container-fluid py-3 px-3">
 
     {% if messages %}
         {% for message in messages %}
-            <div class="alert alert-success alert-dismissible fade show shadow-sm" role="alert">
+            <div class="alert alert-success alert-dismissible fade show" role="alert">
                 {{ message }}
                 <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
             </div>
@@ -113,7 +116,6 @@
 
 </div>
 
-<!-- Bootstrap JS -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 
 </body>
