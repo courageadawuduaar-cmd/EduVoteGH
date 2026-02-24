@@ -43,6 +43,8 @@ from django.shortcuts import get_object_or_404
 from datetime import datetime
 from reportlab.platypus import PageBreak
 from reportlab.lib.units import inch
+from django.http import HttpResponseForbidden
+
 
 def voter_login(request):
     if request.method == "POST":
@@ -171,9 +173,12 @@ def vote_page(request, election_id):
 
     return render(request, 'core/vote_page.html', context)
 
-
 @login_required
 def election_results(request, election_id):
+    # 🔒 Restrict to superusers only
+    if not request.user.is_superuser:
+        return HttpResponseForbidden("Access Denied")
+
     now = timezone.now()
     election = get_object_or_404(Election, id=election_id)
     results = []
@@ -193,10 +198,8 @@ def election_results(request, election_id):
         is_tie = False
 
         if candidate_list:
-
             max_votes = max(c.votes_count for c in candidate_list)
 
-            # If nobody voted
             if max_votes == 0:
                 winner = None
             else:
@@ -208,7 +211,7 @@ def election_results(request, election_id):
                     winner = top_candidates[0]
                 else:
                     is_tie = True
-                    winner = top_candidates  # list of tied candidates
+                    winner = top_candidates
 
         results.append({
             'position': position,
