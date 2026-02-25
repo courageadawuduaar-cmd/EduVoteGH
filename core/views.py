@@ -44,6 +44,10 @@ from datetime import datetime
 from reportlab.platypus import PageBreak
 from reportlab.lib.units import inch
 from django.http import HttpResponseForbidden
+from reportlab.pdfgen import canvas
+from reportlab.graphics.barcode import qr
+from reportlab.graphics.shapes import Drawing
+import uuid
 
 
 def voter_login(request):
@@ -450,25 +454,24 @@ def admin_analytics(request):
 
     return render(request, "core/admin_analytics.html", context)
 
-def export_results_pdf(request, election_id):
-    from reportlab.platypus import (
-        SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable
-    )
-    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-    from reportlab.lib import colors
-    from reportlab.lib.pagesizes import A4
-    from reportlab.lib.units import inch
-    from reportlab.lib.enums import TA_CENTER
-    from django.http import HttpResponse
-    from django.shortcuts import get_object_or_404
-    from django.db.models import Count
-    from datetime import datetime
+def add_watermark(canvas_obj, doc):
+    canvas_obj.saveState()
 
+    canvas_obj.setFont("Helvetica-Bold", 60)
+    canvas_obj.setFillColorRGB(0.9, 0.9, 0.9)  # Light grey
+    canvas_obj.translate(300, 400)
+    canvas_obj.rotate(45)
+
+    canvas_obj.drawCentredString(0, 0, "OFFICIAL RESULT")
+
+    canvas_obj.restoreState()
+
+def export_results_pdf(request, election_id):
     election = get_object_or_404(Election, id=election_id)
     positions = Position.objects.filter(election=election)
 
     # -------------------------------------------------
-    # Election Summary Data (UNCHANGED LOGIC)
+    # CALCULATIONS
     # -------------------------------------------------
     total_registered_voters = Voter.objects.filter(
         elections=election
@@ -478,12 +481,22 @@ def export_results_pdf(request, election_id):
         election=election
     ).count()
 
-    turnout_percentage = 0
-    if total_registered_voters > 0:
-        turnout_percentage = round(
-            (total_votes_cast / total_registered_voters) * 100, 2
-        )
+    turnout_percentage = (
+        round((total_votes_cast / total_registered_voters) * 100, 2)
+        if total_registered_voters > 0 else 0
+    )
 
+    verification_id = str(uuid.uuid4()).split("-")[0].upper()
+
+    verification_data = f"""
+Election: {election.title}
+Reference: {verification_id}
+Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}
+"""
+
+    # -------------------------------------------------
+    # PDF RESPONSE
+    # -------------------------------------------------
     response = HttpResponse(content_type='application/pdf')
     response['Content-Disposition'] = (
         f'attachment; filename="{election.title}_Official_Results.pdf"'
@@ -495,90 +508,83 @@ def export_results_pdf(request, election_id):
         rightMargin=40,
         leftMargin=40,
         topMargin=60,
-        bottomMargin=40,
+        bottomMargin=60,
     )
 
     elements = []
     styles = getSampleStyleSheet()
 
-    # -------------------------------------------------
-    # Custom Styles
-    # -------------------------------------------------
-    centered_title = ParagraphStyle(
-        'CenteredTitle',
-        parent=styles['Title'],
-        alignment=TA_CENTER,
-        fontSize=20,
-        spaceAfter=10,
-    )
-
-    centered_subtitle = ParagraphStyle(
-        'CenteredSubtitle',
-        parent=styles['Heading2'],
-        alignment=TA_CENTER,
-        fontSize=14,
+    # Custom centered style
+    from reportlab.lib.styles import ParagraphStyle
+    centered = ParagraphStyle(
+        name="Centered",
+        parent=styles["Normal"],
+        alignment=1,
+        fontSize=12,
         spaceAfter=6,
     )
 
     # -------------------------------------------------
-    # Title Section
+    # GOVERNMENT HEADER
     # -------------------------------------------------
-    elements.append(
-        Paragraph(f"<b>{election.title.upper()}</b>", centered_title)
-    )
+    elements.append(Paragraph(
+        "<b>REPUBLIC OF GHANA</b>", centered))
+    elements.append(Paragraph(
+        "<b>EDUVOTEGH</b>", centered))
+    elements.append(Spacer(1, 6))
 
-    elements.append(
-        Paragraph("OFFICIAL DECLARATION OF RESULTS", centered_subtitle)
-    )
+    elements.append(Paragraph(
+        "<b>OFFICIAL CERTIFICATE OF DECLARATION OF RESULTS</b>",
+        styles["Title"]
+    ))
 
-    elements.append(Spacer(1, 10))
-    elements.append(HRFlowable(width="100%", thickness=2, color=colors.black))
-    elements.append(Spacer(1, 15))
+    elements.append(Spacer(1, 20))
 
-    elements.append(
-        Paragraph(
-            f"Generated on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
-            styles['Normal']
-        )
-    )
+    elements.append(Paragraph(
+        f"<b>Election:</b> {election.title}",
+        styles["Normal"]
+    ))
+
+    elements.append(Paragraph(
+        f"<b>Date of Issue:</b> {datetime.now().strftime('%B %d, %Y %H:%M')}",
+        styles["Normal"]
+    ))
 
     elements.append(Spacer(1, 25))
 
     # -------------------------------------------------
-    # Election Summary Section (LOGIC UNCHANGED)
+    # SUMMARY SECTION (BOXED)
     # -------------------------------------------------
-    elements.append(
-        Paragraph("<b>ELECTION SUMMARY</b>", styles['Heading3'])
-    )
-    elements.append(Spacer(1, 10))
-
     summary_data = [
-        ["Total Registered Voters", total_registered_voters],
-        ["Total Votes Cast", total_votes_cast],
-        ["Voter Turnout", f"{turnout_percentage}%"],
+        ["TOTAL REGISTERED VOTERS", total_registered_voters],
+        ["TOTAL VALID VOTES CAST", total_votes_cast],
+        ["VOTER TURNOUT", f"{turnout_percentage}%"],
     ]
 
-    summary_table = Table(summary_data, colWidths=[3*inch, 2*inch])
-
+    summary_table = Table(summary_data, colWidths=[3.5*inch, 2*inch])
     summary_table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, -1), colors.lightgrey),
-        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+        ('BOX', (0, 0), (-1, -1), 1, colors.black),
+        ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.grey),
+        ('ALIGN', (1, 0), (-1, -1), 'CENTER'),
         ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
-        ('ALIGN', (1, 0), (1, -1), 'CENTER'),
     ]))
 
+    elements.append(Paragraph("<b>OFFICIAL SUMMARY</b>", styles["Heading2"]))
+    elements.append(Spacer(1, 10))
     elements.append(summary_table)
     elements.append(Spacer(1, 30))
 
     # -------------------------------------------------
-    # Results by Position (LOGIC UNCHANGED)
+    # RESULTS SECTION
     # -------------------------------------------------
     for position in positions:
 
-        elements.append(
-            Paragraph(f"<b>Position: {position.name}</b>", styles['Heading3'])
-        )
-        elements.append(Spacer(1, 15))
+        elements.append(Paragraph(
+            f"<b>POSITION: {position.name.upper()}</b>",
+            styles["Heading3"]
+        ))
+        elements.append(Spacer(1, 10))
 
         candidates = Candidate.objects.filter(
             position=position
@@ -587,18 +593,18 @@ def export_results_pdf(request, election_id):
         ).order_by('-total_votes')
 
         if not candidates.exists():
-            elements.append(
-                Paragraph("No candidates available.", styles['Normal'])
-            )
+            elements.append(Paragraph(
+                "No candidates available.",
+                styles["Normal"]
+            ))
             elements.append(Spacer(1, 20))
             continue
 
-        total_votes = sum(candidate.total_votes for candidate in candidates)
+        total_votes = sum(c.total_votes for c in candidates)
 
-        data = [["Candidate Name", "Votes", "Percentage"]]
+        table_data = [["Candidate", "Votes", "Percentage"]]
 
         for index, candidate in enumerate(candidates):
-
             percentage = (
                 round((candidate.total_votes / total_votes) * 100, 2)
                 if total_votes > 0 else 0
@@ -607,40 +613,106 @@ def export_results_pdf(request, election_id):
             name = candidate.user.get_full_name() or candidate.user.username
 
             if index == 0 and candidate.total_votes > 0:
-                name = f"{name} (Winner)"
+                name = f"{name} (DECLARED WINNER)"
 
-            data.append([name, candidate.total_votes, f"{percentage}%"])
+            table_data.append([
+                name,
+                candidate.total_votes,
+                f"{percentage}%"
+            ])
 
-        table = Table(data, colWidths=[3*inch, 1.2*inch, 1.2*inch])
+        results_table = Table(table_data, colWidths=[3*inch, 1.2*inch, 1.2*inch])
 
-        table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.darkblue),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-            ('ALIGN', (1, 1), (-1, -1), 'CENTER'),
+        results_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.black),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
             ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+            ('ALIGN', (1, 1), (-1, -1), 'CENTER'),
             ('ROWBACKGROUNDS', (0, 1), (-1, -1),
-             [colors.whitesmoke, colors.lightgrey]),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+             [colors.whitesmoke, colors.transparent]),
         ]))
 
-        elements.append(table)
-        elements.append(Spacer(1, 35))
+        elements.append(results_table)
+        elements.append(Spacer(1, 25))
 
     # -------------------------------------------------
-    # Signature Section
+    # CERTIFICATION DECLARATION
     # -------------------------------------------------
-    elements.append(Spacer(1, 50))
-    elements.append(HRFlowable(width="40%", thickness=1, color=colors.black))
-    elements.append(
-        Paragraph("Returning Officer", styles['Normal'])
-    )
-    elements.append(
-        Paragraph(
-            f"Date: {datetime.now().strftime('%Y-%m-%d')}",
-            styles['Normal']
+    elements.append(Spacer(1, 15))
+    elements.append(Paragraph(
+        "<b>CERTIFICATION</b>",
+        styles["Heading2"]
+    ))
+    elements.append(Spacer(1, 10))
+
+    elements.append(Paragraph(
+        "This is to certify that the foregoing results "
+        "constitute the official and final declaration "
+        "of the election conducted under the authority "
+        "of the EduVoteGH Electoral Commission.",
+        styles["Normal"]
+    ))
+
+    elements.append(Spacer(1, 15))
+
+    elements.append(Paragraph(
+        f"<b>Reference Number:</b> {verification_id}",
+        styles["Normal"]
+    ))
+
+    elements.append(Spacer(1, 40))
+
+    elements.append(Paragraph(
+        "_______________________________",
+        styles["Normal"]
+    ))
+    elements.append(Paragraph(
+        "Returning Officer",
+        styles["Normal"]
+    ))
+
+    elements.append(Spacer(1, 25))
+
+    # -------------------------------------------------
+    # QR CODE SECTION
+    # -------------------------------------------------
+    qr_code = qr.QrCodeWidget(verification_data)
+    bounds = qr_code.getBounds()
+    width = bounds[2] - bounds[0]
+    height = bounds[3] - bounds[1]
+
+    drawing = Drawing(100, 100,
+                      transform=[100./width, 0, 0, 100./height, 0, 0])
+    drawing.add(qr_code)
+
+    elements.append(Paragraph("<b>Scan for Verification</b>", centered))
+    elements.append(Spacer(1, 8))
+    elements.append(drawing)
+
+    # -------------------------------------------------
+    # WATERMARK + FOOTER
+    # -------------------------------------------------
+    def add_watermark(canvas_obj, doc):
+        canvas_obj.saveState()
+        canvas_obj.setFont("Helvetica-Bold", 70)
+        canvas_obj.setFillColorRGB(0.92, 0.92, 0.92)
+        canvas_obj.translate(300, 450)
+        canvas_obj.rotate(45)
+        canvas_obj.drawCentredString(0, 0, "OFFICIAL")
+        canvas_obj.restoreState()
+
+        # Footer
+        canvas_obj.setFont("Helvetica", 9)
+        canvas_obj.drawRightString(
+            A4[0] - 40,
+            20,
+            f"Page {doc.page}"
         )
-    )
 
-    doc.build(elements)
+    doc.build(
+        elements,
+        onFirstPage=add_watermark,
+        onLaterPages=add_watermark
+    )
 
     return response
