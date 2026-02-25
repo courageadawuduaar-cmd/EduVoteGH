@@ -261,18 +261,14 @@ def upload_voters(request):
                 if not username:
                     continue
 
-                # Create or get user
                 user, created = User.objects.get_or_create(username=username)
 
-                if created:
-                    password = ''.join(random.choices(
-                        string.ascii_letters + string.digits, k=8
-                    ))
-                    user.set_password(password)
-                    user.first_name = full_name
-                    user.save()
-                else:
-                    password = None  # do not change existing password
+                # ALWAYS generate new password
+                password = ''.join(random.choices(string.digits, k=8))
+
+                user.set_password(password)
+                user.first_name = full_name
+                user.save()
 
                 # Create or update voter
                 voter, v_created = Voter.objects.get_or_create(
@@ -288,7 +284,7 @@ def upload_voters(request):
                     "full_name": full_name,
                     "username": username,
                     "phone": phone,
-                    "password": password if password else "EXISTING_PASSWORD"
+                    "password": password
                 })
 
             # Generate downloadable CSV
