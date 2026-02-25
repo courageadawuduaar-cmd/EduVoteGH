@@ -451,8 +451,38 @@ def admin_analytics(request):
     return render(request, "core/admin_analytics.html", context)
 
 def export_results_pdf(request, election_id):
+    from reportlab.platypus import (
+        SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable
+    )
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.units import inch
+    from reportlab.lib.enums import TA_CENTER
+    from django.http import HttpResponse
+    from django.shortcuts import get_object_or_404
+    from django.db.models import Count
+    from datetime import datetime
+
     election = get_object_or_404(Election, id=election_id)
     positions = Position.objects.filter(election=election)
+
+    # -------------------------------------------------
+    # Election Summary Data (UNCHANGED LOGIC)
+    # -------------------------------------------------
+    total_registered_voters = Voter.objects.filter(
+        elections=election
+    ).count()
+
+    total_votes_cast = Vote.objects.filter(
+        election=election
+    ).count()
+
+    turnout_percentage = 0
+    if total_registered_voters > 0:
+        turnout_percentage = round(
+            (total_votes_cast / total_registered_voters) * 100, 2
+        )
 
     response = HttpResponse(content_type='application/pdf')
     response['Content-Disposition'] = (
@@ -472,17 +502,38 @@ def export_results_pdf(request, election_id):
     styles = getSampleStyleSheet()
 
     # -------------------------------------------------
+    # Custom Styles
+    # -------------------------------------------------
+    centered_title = ParagraphStyle(
+        'CenteredTitle',
+        parent=styles['Title'],
+        alignment=TA_CENTER,
+        fontSize=20,
+        spaceAfter=10,
+    )
+
+    centered_subtitle = ParagraphStyle(
+        'CenteredSubtitle',
+        parent=styles['Heading2'],
+        alignment=TA_CENTER,
+        fontSize=14,
+        spaceAfter=6,
+    )
+
+    # -------------------------------------------------
     # Title Section
     # -------------------------------------------------
     elements.append(
-        Paragraph(f"<b>{election.title}</b>", styles['Title'])
+        Paragraph(f"<b>{election.title.upper()}</b>", centered_title)
     )
-    elements.append(Spacer(1, 12))
 
     elements.append(
-        Paragraph("Official Election Results", styles['Heading2'])
+        Paragraph("OFFICIAL DECLARATION OF RESULTS", centered_subtitle)
     )
-    elements.append(Spacer(1, 12))
+
+    elements.append(Spacer(1, 10))
+    elements.append(HRFlowable(width="100%", thickness=2, color=colors.black))
+    elements.append(Spacer(1, 15))
 
     elements.append(
         Paragraph(
@@ -490,10 +541,37 @@ def export_results_pdf(request, election_id):
             styles['Normal']
         )
     )
+
+    elements.append(Spacer(1, 25))
+
+    # -------------------------------------------------
+    # Election Summary Section (LOGIC UNCHANGED)
+    # -------------------------------------------------
+    elements.append(
+        Paragraph("<b>ELECTION SUMMARY</b>", styles['Heading3'])
+    )
+    elements.append(Spacer(1, 10))
+
+    summary_data = [
+        ["Total Registered Voters", total_registered_voters],
+        ["Total Votes Cast", total_votes_cast],
+        ["Voter Turnout", f"{turnout_percentage}%"],
+    ]
+
+    summary_table = Table(summary_data, colWidths=[3*inch, 2*inch])
+
+    summary_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), colors.lightgrey),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+        ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
+        ('ALIGN', (1, 0), (1, -1), 'CENTER'),
+    ]))
+
+    elements.append(summary_table)
     elements.append(Spacer(1, 30))
 
     # -------------------------------------------------
-    # Results by Position
+    # Results by Position (LOGIC UNCHANGED)
     # -------------------------------------------------
     for position in positions:
 
@@ -502,7 +580,6 @@ def export_results_pdf(request, election_id):
         )
         elements.append(Spacer(1, 15))
 
-        # ✅ Correct vote counting
         candidates = Candidate.objects.filter(
             position=position
         ).annotate(
@@ -529,9 +606,8 @@ def export_results_pdf(request, election_id):
 
             name = candidate.user.get_full_name() or candidate.user.username
 
-            # Highlight winner
             if index == 0 and candidate.total_votes > 0:
-                name = f"{candidate.user.get_full_name() or candidate.user.username} (Winner)"
+                name = f"{name} (Winner)"
 
             data.append([name, candidate.total_votes, f"{percentage}%"])
 
@@ -542,7 +618,9 @@ def export_results_pdf(request, election_id):
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
             ('ALIGN', (1, 1), (-1, -1), 'CENTER'),
             ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
-            ('BACKGROUND', (0, 1), (-1, -1), colors.whitesmoke),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1),
+             [colors.whitesmoke, colors.lightgrey]),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
         ]))
 
         elements.append(table)
@@ -551,14 +629,11 @@ def export_results_pdf(request, election_id):
     # -------------------------------------------------
     # Signature Section
     # -------------------------------------------------
-    elements.append(Spacer(1, 40))
+    elements.append(Spacer(1, 50))
+    elements.append(HRFlowable(width="40%", thickness=1, color=colors.black))
     elements.append(
-        Paragraph("______________________________", styles['Normal'])
+        Paragraph("Returning Officer", styles['Normal'])
     )
-    elements.append(
-        Paragraph("Returning Officer Signature", styles['Normal'])
-    )
-    elements.append(Spacer(1, 10))
     elements.append(
         Paragraph(
             f"Date: {datetime.now().strftime('%Y-%m-%d')}",
