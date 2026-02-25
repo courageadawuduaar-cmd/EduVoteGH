@@ -69,28 +69,37 @@
             </ul>
 
             {% if user.is_authenticated %}
-            <div class="d-flex flex-column flex-lg-row gap-2 mt-3 mt-lg-0">
+            <div class="d-flex flex-column flex-lg-row align-items-lg-center gap-2 mt-3 mt-lg-0 text-lg-end">
+
+                <!-- Welcome Text -->
+                <span class="text-white small text-center text-lg-start">
+                    Welcome, <strong>{{ user.username }}</strong>
+                </span>
 
                 {% if active_election %}
-                    <span class="badge bg-success text-center">🟢 Active Election</span>
+                    <span class="badge bg-success text-center">
+                        🟢 Active Election
+                    </span>
                 {% else %}
-                    <span class="badge bg-danger text-center">🔴 No Active Election</span>
+                    <span class="badge bg-danger text-center">
+                        🔴 No Active Election
+                    </span>
                 {% endif %}
 
                 {% if user.is_staff %}
                     <a class="btn btn-outline-light btn-sm w-100 w-lg-auto"
-                       href="{% url 'admin_panel' %}">
+                    href="{% url 'admin_panel' %}">
                         Home
                     </a>
                 {% else %}
                     <a class="btn btn-outline-light btn-sm w-100 w-lg-auto"
-                       href="{% url 'vote_dashboard' %}">
+                    href="{% url 'vote_dashboard' %}">
                         Home
                     </a>
                 {% endif %}
 
                 <a class="btn btn-light btn-sm w-100 w-lg-auto"
-                   href="{% url 'voter_logout' %}">
+                href="{% url 'voter_logout' %}">
                     Logout
                 </a>
 
