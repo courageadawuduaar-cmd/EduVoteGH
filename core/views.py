@@ -698,7 +698,7 @@ Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}
         canvas_obj.setFillColorRGB(0.92, 0.92, 0.92)
         canvas_obj.translate(300, 450)
         canvas_obj.rotate(45)
-        canvas_obj.drawCentredString(0, 0, "OFFICIAL")
+        canvas_obj.drawCentredString(0, 0, "EDUVOTEGH")
         canvas_obj.restoreState()
 
         # Footer
