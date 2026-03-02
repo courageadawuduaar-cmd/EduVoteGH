@@ -15,6 +15,13 @@
         html, body {
             max-width: 100%;
             overflow-x: hidden;
+            min-height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+
+        body {
+            flex: 1;
         }
 
         img {
@@ -33,6 +40,10 @@
         * {
             word-wrap: break-word;
         }
+
+        footer {
+            margin-top: auto;
+        }
     </style>
 </head>
 
@@ -41,7 +52,7 @@
 <nav class="navbar navbar-expand-lg navbar-dark bg-primary shadow-sm">
     <div class="container-fluid">
 
-        <a class="navbar-brand fw-bold fs-5 text-truncate" href="#">
+        <a class="navbar-brand fw-bold fs-5 text-truncate" href="/">
             EduVoteGH
             {% if institution %}
                 <span class="small d-block d-md-inline">
@@ -71,7 +82,6 @@
             {% if user.is_authenticated %}
             <div class="d-flex flex-column flex-lg-row align-items-lg-center gap-2 mt-3 mt-lg-0 text-lg-end">
 
-                <!-- Welcome Text -->
                 <span class="text-white small text-center text-lg-start">
                     Welcome, <strong>{{ user.username }}</strong>
                 </span>
@@ -88,18 +98,18 @@
 
                 {% if user.is_staff %}
                     <a class="btn btn-outline-light btn-sm w-100 w-lg-auto"
-                    href="{% url 'admin_panel' %}">
+                       href="{% url 'admin_panel' %}">
                         Home
                     </a>
                 {% else %}
                     <a class="btn btn-outline-light btn-sm w-100 w-lg-auto"
-                    href="{% url 'vote_dashboard' %}">
+                       href="{% url 'vote_dashboard' %}">
                         Home
                     </a>
                 {% endif %}
 
                 <a class="btn btn-light btn-sm w-100 w-lg-auto"
-                href="{% url 'voter_logout' %}">
+                   href="{% url 'voter_logout' %}">
                     Logout
                 </a>
 
@@ -124,6 +134,106 @@
     {% block content %}{% endblock %}
 
 </div>
+
+<!-- ✅ ADVANCED PROFESSIONAL FOOTER -->
+<footer class="bg-dark text-white mt-5 pt-5 pb-4">
+    <div class="container">
+
+        <div class="row gy-4">
+
+            <!-- Brand Section -->
+            <div class="col-lg-4 col-md-6">
+                <h4 class="fw-bold mb-3">EduVoteGH</h4>
+                <p class="small text-light opacity-75">
+                    A secure, transparent and scalable digital voting system
+                    built for institutions, organizations and educational bodies.
+                </p>
+
+                <div class="mt-3">
+                    <span class="badge bg-success me-2">Secure</span>
+                    <span class="badge bg-primary me-2">Transparent</span>
+                    <span class="badge bg-warning text-dark">Reliable</span>
+                </div>
+            </div>
+
+            <!-- Quick Links -->
+            <div class="col-lg-2 col-md-6">
+                <h6 class="fw-semibold mb-3">Quick Links</h6>
+                <ul class="list-unstyled small">
+                    <li class="mb-2">
+                        <a href="/" class="footer-link">Home</a>
+                    </li>
+                    <li class="mb-2">
+                        <a href="{% url 'about' %}" class="footer-link">About Us</a>
+                    </li>
+                    <li class="mb-2">
+                        <a href="{% url 'contact' %}" class="footer-link">Contact</a>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- Legal -->
+            <div class="col-lg-3 col-md-6">
+                <h6 class="fw-semibold mb-3">Legal</h6>
+                <ul class="list-unstyled small">
+                    <li class="mb-2">
+                        <a href="{% url 'privacy' %}" class="footer-link">Privacy Policy</a>
+                    </li>
+                    <li class="mb-2">
+                        <a href="{% url 'terms' %}" class="footer-link">Terms of Service</a>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- Contact Info -->
+            <div class="col-lg-3 col-md-6">
+                <h6 class="fw-semibold mb-3">Contact</h6>
+                <ul class="list-unstyled small text-light opacity-75">
+                    <li class="mb-2">
+                        📧 eduvote.gh@gmail.com
+                    </li>
+                    <li class="mb-2">
+                        📞 +233 545133351
+                    </li>
+                    <li>
+                        📍 Gbawe - Telecom. Accra, Ghana
+                    </li>
+                </ul>
+            </div>
+
+        </div>
+
+        <!-- Divider -->
+        <hr class="border-secondary my-4">
+
+        <!-- Bottom Row -->
+        <div class="d-flex flex-column flex-md-row justify-content-between align-items-center small text-light opacity-75">
+
+            <div>
+                &copy; {{ now|date:"Y" }} EduVoteGH. All rights reserved.
+            </div>
+
+            <div class="mt-2 mt-md-0">
+                Designed & Secured by EduVoteGH
+            </div>
+
+        </div>
+
+    </div>
+</footer>
+
+<style>
+.footer-link {
+    color: rgba(255,255,255,0.75);
+    text-decoration: none;
+    transition: all 0.3s ease;
+}
+
+.footer-link:hover {
+    color: #ffffff;
+    padding-left: 5px;
+}
+</style>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 
