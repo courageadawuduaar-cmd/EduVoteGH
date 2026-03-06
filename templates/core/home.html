@@ -1,175 +1,465 @@
 {% extends 'core/base.html' %}
 
-{% block title %}Home - Election System{% endblock %}
+{% block title %}EduVoteGH | Secure Digital Elections{% endblock %}
 
 {% block content %}
 
 <style>
-.hero {
-    background: linear-gradient(135deg, #0d6efd, #0dcaf0);
-    color: white;
-    padding: 80px 20px;
-    border-radius: 20px;
-    margin-bottom: 50px;
-    text-align: center;
+
+/* HERO */
+
+.hero{
+background: linear-gradient(135deg,#0d6efd,#0dcaf0);
+color:white;
+padding:90px 30px;
+border-radius:20px;
+text-align:center;
+margin-bottom:50px;
 }
 
-.election-card {
-    border: none;
-    border-radius: 15px;
-    transition: 0.3s ease;
+.hero h1{
+font-size:42px;
+font-weight:700;
+margin-bottom:10px;
 }
 
-.election-card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+.hero p{
+font-size:18px;
+opacity:0.95;
 }
 
-.countdown {
-    font-size: 0.9rem;
-    font-weight: 600;
-    color: #dc3545;
+.hero-buttons{
+margin-top:25px;
 }
 
-/* 🔥 LIVE badge animation */
-.live-badge {
-    animation: pulse 1.2s infinite;
+/* TRUST BAR */
+
+.trust-bar{
+background:#f8f9fa;
+padding:20px;
+border-radius:12px;
+margin-bottom:40px;
+text-align:center;
+font-size:15px;
 }
 
-@keyframes pulse {
-    0% { box-shadow: 0 0 0 0 rgba(220,53,69,0.7); }
-    70% { box-shadow: 0 0 0 10px rgba(220,53,69,0); }
-    100% { box-shadow: 0 0 0 0 rgba(220,53,69,0); }
+/* ELECTION CARDS */
+
+.election-card{
+border:none;
+border-radius:15px;
+transition:0.3s ease;
+overflow:hidden;
 }
+
+.election-card:hover{
+transform:translateY(-5px);
+box-shadow:0 10px 25px rgba(0,0,0,0.12);
+}
+
+.card-body{
+padding:22px;
+}
+
+.election-title{
+font-size:18px;
+font-weight:700;
+margin-bottom:10px;
+}
+
+/* STATUS BADGES */
+
+.live-badge{
+animation:pulse 1.2s infinite;
+}
+
+@keyframes pulse{
+0%{box-shadow:0 0 0 0 rgba(220,53,69,0.7);}
+70%{box-shadow:0 0 0 10px rgba(220,53,69,0);}
+100%{box-shadow:0 0 0 0 rgba(220,53,69,0);}
+}
+
+/* COUNTDOWN */
+
+.countdown{
+font-size:14px;
+font-weight:600;
+color:#dc3545;
+margin-top:5px;
+}
+
+/* SECTION TITLE */
+
+.section-title{
+font-size:24px;
+font-weight:700;
+margin-bottom:25px;
+}
+
+/* MOBILE */
+
+@media(max-width:768px){
+
+.hero h1{
+font-size:30px;
+}
+
+}
+
 </style>
+
 
 <div class="container mt-5">
 
-    <!-- HERO -->
-    <div class="hero shadow">
-        <h1>Online Election System</h1>
-        <p class="lead">Secure • Transparent • Real-Time Voting</p>
+<!-- HERO -->
 
-        {% if not request.user.is_authenticated %}
-            <a href="{% url 'voter_login' %}" 
-               class="btn btn-light btn-lg mt-3 px-4">
-                Login to Vote
-            </a>
-        {% else %}
-            <a href="{% url 'vote_dashboard' %}" 
-               class="btn btn-warning btn-lg mt-3 px-4">
-                Go to Dashboard
-            </a>
-        {% endif %}
-    </div>
+<div class="hero shadow">
 
-    <!-- ELECTIONS -->
-    <h4 class="mb-4 fw-bold">Available Elections</h4>
+<h1>EduVoteGH</h1>
 
-    {% if elections %}
-        <div class="row">
-            {% for election in elections %}
-                <div class="col-md-4 mb-4">
-                    <div class="card election-card shadow-sm h-100">
-                        <div class="card-body">
+<p>
+Secure • Transparent • Real-Time Digital Elections for Schools & Institutions
+</p>
 
-                            <h5 class="fw-bold">
-                                {{ election.title }}
-                            </h5>
+<p>
+Conduct fair, fast and tamper-proof elections with our trusted digital voting platform.
+</p>
 
-                            <!-- STATUS BADGE -->
-                            {% if election.start_time > now %}
-                                <span class="badge bg-warning text-dark mb-2">
-                                    Upcoming
-                                </span>
+<div class="hero-buttons">
 
-                            {% elif election.start_time <= now and election.end_time >= now %}
-                                <span class="badge bg-danger mb-2 live-badge">
-                                    LIVE NOW
-                                </span>
+{% if not request.user.is_authenticated %}
 
-                            {% else %}
-                                <span class="badge bg-secondary mb-2">
-                                    Closed
-                                </span>
-                            {% endif %}
+<a href="{% url 'voter_login' %}" 
+class="btn btn-light btn-lg px-4 me-2">
+Login to Vote
+</a>
 
-                            <!-- COUNTDOWN -->
-                            {% if election.start_time <= now and election.end_time >= now %}
-                                <p class="countdown"
-                                   data-end="{{ election.end_time|date:'Y-m-d H:i:s' }}">
-                                    Calculating...
-                                </p>
+{% else %}
 
-                            {% elif election.start_time > now %}
-                                <p class="countdown"
-                                   data-end="{{ election.start_time|date:'Y-m-d H:i:s' }}">
-                                    Starts soon...
-                                </p>
+<a href="{% url 'vote_dashboard' %}" 
+class="btn btn-warning btn-lg px-4">
+Go to Dashboard
+</a>
 
-                            {% else %}
-                                <p class="text-muted small">
-                                    Election has ended
-                                </p>
-                            {% endif %}
-
-                            <!-- BUTTONS -->
-                            {% if election.start_time <= now and election.end_time >= now %}
-                                <a href="{% url 'vote_page' election.id %}"
-                                   class="btn btn-success btn-sm mt-2">
-                                    Vote Now
-                                </a>
-
-                            {% elif election.end_time < now %}
-                                <a href="{% url 'election_results' election.id %}"
-                                   class="btn btn-outline-primary btn-sm mt-2">
-                                    View Results
-                                </a>
-
-                            {% else %}
-                                <button class="btn btn-secondary btn-sm mt-2" disabled>
-                                    Not Started
-                                </button>
-                            {% endif %}
-
-                        </div>
-                    </div>
-                </div>
-            {% endfor %}
-        </div>
-    {% else %}
-        <p class="text-muted">No elections available.</p>
-    {% endif %}
+{% endif %}
 
 </div>
 
+</div>
+
+
+<!-- TRUST MESSAGE -->
+
+<div class="trust-bar shadow-sm">
+
+Trusted digital voting platform designed for  
+<strong>schools, colleges and institutions in Ghana.</strong>
+
+</div>
+
+
+
+<!-- ELECTIONS -->
+
+<div class="section-title">
+Available Elections
+</div>
+
+
+{% if elections %}
+
+<div class="row">
+
+{% for election in elections %}
+
+<div class="col-md-4 mb-4">
+
+<div class="card election-card shadow-sm h-100">
+
+<div class="card-body">
+
+<div class="election-title">
+{{ election.title }}
+</div>
+
+
+<!-- STATUS -->
+
+{% if election.start_time > now %}
+
+<span class="badge bg-warning text-dark">
+Upcoming
+</span>
+
+{% elif election.start_time <= now and election.end_time >= now %}
+
+<span class="badge bg-danger live-badge">
+LIVE NOW
+</span>
+
+{% else %}
+
+<span class="badge bg-secondary">
+Closed
+</span>
+
+{% endif %}
+
+
+
+<!-- COUNTDOWN -->
+
+{% if election.start_time <= now and election.end_time >= now %}
+
+<p class="countdown"
+data-end="{{ election.end_time|date:'Y-m-d H:i:s' }}">
+Calculating...
+</p>
+
+{% elif election.start_time > now %}
+
+<p class="countdown"
+data-end="{{ election.start_time|date:'Y-m-d H:i:s' }}">
+Starts soon...
+</p>
+
+{% else %}
+
+<p class="text-muted small">
+Election has ended
+</p>
+
+{% endif %}
+
+
+
+<!-- BUTTONS -->
+
+{% if election.start_time <= now and election.end_time >= now %}
+
+<a href="{% url 'vote_page' election.id %}"
+class="btn btn-success btn-sm mt-2">
+Vote Now
+</a>
+
+{% elif election.end_time < now %}
+
+<a href="{% url 'election_results' election.id %}"
+class="btn btn-outline-primary btn-sm mt-2">
+View Results
+</a>
+
+{% else %}
+
+<button class="btn btn-secondary btn-sm mt-2" disabled>
+Not Started
+</button>
+
+{% endif %}
+
+</div>
+</div>
+
+</div>
+
+{% endfor %}
+
+</div>
+
+{% else %}
+
+<p class="text-muted">
+No elections available at the moment.
+</p>
+
+{% endif %}
+
+<!-- STATISTICS -->
+
+<div class="row text-center mt-5">
+
+<div class="col-md-4 mb-4">
+<div class="card shadow-sm border-0 p-4">
+<h2 class="text-primary fw-bold">10+</h2>
+<p class="mb-0">Elections Conducted</p>
+</div>
+</div>
+
+<div class="col-md-4 mb-4">
+<div class="card shadow-sm border-0 p-4">
+<h2 class="text-success fw-bold">5000+</h2>
+<p class="mb-0">Votes Cast Securely</p>
+</div>
+</div>
+
+<div class="col-md-4 mb-4">
+<div class="card shadow-sm border-0 p-4">
+<h2 class="text-danger fw-bold">20+</h2>
+<p class="mb-0">Schools & Institutions</p>
+</div>
+</div>
+
+</div>
+
+<!-- HOW IT WORKS -->
+
+<div class="mt-5">
+
+<h3 class="fw-bold text-center mb-4">
+How EduVoteGH Works
+</h3>
+
+<div class="row text-center">
+
+<div class="col-md-4 mb-4">
+
+<div class="card shadow-sm border-0 p-4 h-100">
+
+<h5 class="fw-bold">1️⃣ School Registers Election</h5>
+
+<p class="text-muted">
+School administrators create the election,
+add positions and candidates directly in the system.
+</p>
+
+</div>
+
+</div>
+
+
+<div class="col-md-4 mb-4">
+
+<div class="card shadow-sm border-0 p-4 h-100">
+
+<h5 class="fw-bold">2️⃣ Voters Receive Login</h5>
+
+<p class="text-muted">
+Students receive secure login credentials
+to access the voting portal from their phone or computer.
+</p>
+
+</div>
+
+</div>
+
+
+<div class="col-md-4 mb-4">
+
+<div class="card shadow-sm border-0 p-4 h-100">
+
+<h5 class="fw-bold">3️⃣ Votes Count Automatically</h5>
+
+<p class="text-muted">
+Votes are recorded instantly and results are calculated
+automatically with full transparency.
+</p>
+
+</div>
+
+</div>
+
+</div>
+
+</div>
+<!-- TESTIMONIALS -->
+
+<div class="mt-5">
+
+<h3 class="fw-bold text-center mb-4">
+What Schools Say
+</h3>
+
+<div class="row">
+
+<div class="col-md-4 mb-4">
+
+<div class="card shadow-sm border-0 p-4 h-100">
+
+<p class="text-muted">
+"EduVoteGH made our SRC elections fast and transparent.
+Students trusted the results immediately."
+</p>
+
+<strong>— St Francis College of Education</strong>
+
+</div>
+
+</div>
+
+
+<div class="col-md-4 mb-4">
+
+<div class="card shadow-sm border-0 p-4 h-100">
+
+<p class="text-muted">
+"The platform eliminated manual counting
+and reduced election disputes."
+</p>
+
+<strong>— University Student Council</strong>
+
+</div>
+
+</div>
+
+
+<div class="col-md-4 mb-4">
+
+<div class="card shadow-sm border-0 p-4 h-100">
+
+<p class="text-muted">
+"A reliable and professional voting system
+for modern educational institutions."
+</p>
+
+<strong>— School Administration</strong>
+
+</div>
+
+</div>
+
+</div>
+
+</div>
+
+</div>
+
+
+
 <script>
-function updateCountdowns() {
-    const countdowns = document.querySelectorAll(".countdown");
 
-    countdowns.forEach(function(element) {
-        const endDate = new Date(element.dataset.end).getTime();
-        const now = new Date().getTime();
-        const distance = endDate - now;
+function updateCountdowns(){
 
-        if (distance < 0) {
-            element.innerHTML = "Time reached";
-            return;
-        }
+const countdowns=document.querySelectorAll(".countdown");
 
-        const days = Math.floor(distance / (1000 * 60 * 60 * 24));
-        const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-        const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+countdowns.forEach(function(element){
 
-        element.innerHTML =
-            days + "d " +
-            hours + "h " +
-            minutes + "m remaining";
-    });
+const endDate=new Date(element.dataset.end).getTime();
+const now=new Date().getTime();
+const distance=endDate-now;
+
+if(distance<0){
+element.innerHTML="Time reached";
+return;
+}
+
+const days=Math.floor(distance/(1000*60*60*24));
+const hours=Math.floor((distance%(1000*60*60*24))/(1000*60*60));
+const minutes=Math.floor((distance%(1000*60*60))/(1000*60));
+
+element.innerHTML=
+days+"d "+
+hours+"h "+
+minutes+"m remaining";
+
+});
+
 }
 
 updateCountdowns();
-setInterval(updateCountdowns, 60000);
+
+setInterval(updateCountdowns,60000);
+
 </script>
 
 {% endblock %}

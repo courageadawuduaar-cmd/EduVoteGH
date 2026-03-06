@@ -110,3 +110,27 @@ class AdminAuditLog(models.Model):
 
     def __str__(self):
         return f"{self.admin.username} - {self.action} - {self.timestamp}"
+
+class ContactMessage(models.Model):
+
+    name = models.CharField(max_length=100)
+
+    school = models.CharField(max_length=200)
+
+    role = models.CharField(max_length=100)
+
+    phone = models.CharField(max_length=20)
+
+    email = models.EmailField()
+
+    students = models.IntegerField(blank=True, null=True)
+
+    message = models.TextField()
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    is_replied = models.BooleanField(default=False)
+
+    def __str__(self):
+        return f"{self.name} - {self.school}"
+

@@ -155,15 +155,19 @@ INSTALLED_APPS += [
 DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
 
 CLOUDINARY_STORAGE = {
-    'CLOUD_NAME': os.environ.get('CLOUDINARY_CLOUD_NAME', 'your_cloud_name'),
-    'API_KEY': os.environ.get('CLOUDINARY_API_KEY', 'your_api_key'),
-    'API_SECRET': os.environ.get('CLOUDINARY_API_SECRET', 'your_api_secret'),
+    'CLOUD_NAME': 'dij9vnd9e',
+    'API_KEY': '266281665234432',
+    'API_SECRET': 'N2rRq782IXMw6HhTt9iapyExMCQ',
 }
 
 import cloudinary
 
 cloudinary.config(
-    cloud_name=CLOUDINARY_STORAGE['CLOUD_NAME'],
-    api_key=CLOUDINARY_STORAGE['API_KEY'],
-    api_secret=CLOUDINARY_STORAGE['API_SECRET'],
+    cloud_name='dij9vnd9e',
+    api_key='266281665234432',
+    api_secret='N2rRq782IXMw6HhTt9iapyExMCQ',
 )
+
+EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+
+DEFAULT_FROM_EMAIL = "eduvote.gh@gmail.com"

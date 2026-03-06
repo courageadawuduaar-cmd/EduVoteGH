@@ -1,9 +1,210 @@
 {% extends "core/base.html" %}
 {% block content %}
-<h1>About EduVote</h1>
 
-<p>EduVote is a secure digital voting platform designed for educational institutions and organizations.</p>
+<style>
 
-<p>Our mission is to provide transparent, tamper-resistant, and scalable election systems.</p>
+.about-container{
+max-width:1000px;
+margin:auto;
+padding:40px 20px;
+font-family:Arial, Helvetica, sans-serif;
+line-height:1.6;
+}
+
+.about-hero{
+text-align:center;
+margin-bottom:40px;
+}
+
+.about-hero h1{
+font-size:36px;
+margin-bottom:10px;
+}
+
+.about-hero p{
+color:#555;
+font-size:18px;
+max-width:700px;
+margin:auto;
+}
+
+.about-section{
+margin-bottom:40px;
+}
+
+.about-section h2{
+font-size:24px;
+margin-bottom:10px;
+border-left:4px solid #c8102e;
+padding-left:10px;
+}
+
+.about-section p{
+font-size:16px;
+color:#444;
+}
+
+.about-grid{
+display:grid;
+grid-template-columns:1fr 1fr 1fr;
+gap:25px;
+margin-top:20px;
+}
+
+.feature-box{
+background:#f7f7f7;
+padding:20px;
+border-radius:8px;
+border:1px solid #eee;
+}
+
+.feature-box h3{
+font-size:18px;
+margin-bottom:8px;
+}
+
+.feature-box p{
+font-size:14px;
+color:#555;
+}
+
+.mission-box{
+background:#fafafa;
+border-left:5px solid #c8102e;
+padding:20px;
+border-radius:6px;
+margin-top:20px;
+}
+
+@media(max-width:768px){
+
+.about-grid{
+grid-template-columns:1fr;
+}
+
+.about-hero h1{
+font-size:28px;
+}
+
+}
+
+</style>
+
+
+
+<div class="about-container">
+
+<!-- HERO -->
+
+<div class="about-hero">
+
+<h1>About EduVoteGH</h1>
+
+<p>
+EduVoteGH is a secure digital election platform built to help schools,
+colleges, and organizations conduct transparent and trustworthy elections.
+</p>
+
+</div>
+
+
+
+<!-- WHO WE ARE -->
+
+<div class="about-section">
+
+<h2>Who We Are</h2>
+
+<p>
+EduVoteGH was created to modernize the way elections are conducted in
+educational institutions. Many schools still rely on manual voting systems
+which are slow, prone to manipulation, and difficult to audit.
+</p>
+
+<p>
+Our platform replaces paper ballots with a secure digital system that allows
+students and voters to cast their votes online while maintaining full
+transparency and integrity of the electoral process.
+</p>
+
+</div>
+
+
+
+<!-- FEATURES -->
+
+<div class="about-section">
+
+<h2>What We Provide</h2>
+
+<div class="about-grid">
+
+<div class="feature-box">
+<h3>Secure Digital Voting</h3>
+<p>
+Our platform ensures that every vote is securely recorded and protected
+against tampering or manipulation.
+</p>
+</div>
+
+<div class="feature-box">
+<h3>Real-Time Results</h3>
+<p>
+Election administrators can monitor results live with visual charts and
+transparent vote counting.
+</p>
+</div>
+
+<div class="feature-box">
+<h3>Trusted by Institutions</h3>
+<p>
+EduVoteGH is designed specifically for schools, colleges and organizations
+seeking reliable and transparent election systems.
+</p>
+</div>
+
+</div>
+
+</div>
+
+
+
+<!-- MISSION -->
+
+<div class="about-section">
+
+<h2>Our Mission</h2>
+
+<div class="mission-box">
+
+<p>
+Our mission is to promote fair, transparent, and efficient elections
+within educational institutions by leveraging modern technology and
+secure digital infrastructure.
+</p>
+
+</div>
+
+</div>
+
+
+
+<!-- VISION -->
+
+<div class="about-section">
+
+<h2>Our Vision</h2>
+
+<p>
+To become Africa's leading digital election platform for schools,
+universities, and organizations seeking reliable and transparent
+voting systems.
+</p>
+
+</div>
+
+
+
+</div>
 
 {% endblock %}

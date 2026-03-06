@@ -50,6 +50,11 @@ from reportlab.graphics.shapes import Drawing
 import uuid
 
 
+from .models import ContactMessage
+from django.core.mail import send_mail
+from django.conf import settings
+
+
 def voter_login(request):
     if request.method == "POST":
         form = VoterLoginForm(request, data=request.POST)
@@ -179,40 +184,64 @@ def vote_page(request, election_id):
 
 @login_required
 def election_results(request, election_id):
+
     # 🔒 Restrict to superusers only
     if not request.user.is_superuser:
         return HttpResponseForbidden("Access Denied")
 
     now = timezone.now()
     election = get_object_or_404(Election, id=election_id)
+
     results = []
 
     positions = Position.objects.filter(election=election)
 
+    # ✅ TOTAL VOTES CAST IN ELECTION
+    total_votes_cast = Vote.objects.filter(position__election=election).count()
+
     for position in positions:
+
         candidates = Candidate.objects.filter(position=position)
 
+        # ✅ TOTAL VOTES FOR THIS POSITION
+        position_total_votes = Vote.objects.filter(position=position).count()
+
         candidate_list = []
+
         for candidate in candidates:
+
             votes_count = Vote.objects.filter(candidate=candidate).count()
+
+            # attach vote count
             candidate.votes_count = votes_count
+
+            # ✅ calculate percentage correctly
+            if position_total_votes > 0:
+                candidate.percentage = round((votes_count / position_total_votes) * 100, 1)
+            else:
+                candidate.percentage = 0
+
             candidate_list.append(candidate)
 
         winner = None
         is_tie = False
 
         if candidate_list:
+
             max_votes = max(c.votes_count for c in candidate_list)
 
             if max_votes == 0:
                 winner = None
+
             else:
+
                 top_candidates = [
                     c for c in candidate_list if c.votes_count == max_votes
                 ]
 
                 if len(top_candidates) == 1:
                     winner = top_candidates[0]
+
                 else:
                     is_tie = True
                     winner = top_candidates
@@ -221,12 +250,14 @@ def election_results(request, election_id):
             'position': position,
             'candidates': candidate_list,
             'winner': winner,
-            'is_tie': is_tie
+            'is_tie': is_tie,
+            'position_total_votes': position_total_votes
         })
 
     context = {
         'election': election,
         'results': results,
+        'total_votes_cast': total_votes_cast,  # ✅ NEW
         'now': now
     }
 
@@ -716,3 +747,53 @@ Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}
     )
 
     return response
+
+
+def contact(request):
+
+    if request.method == "POST":
+
+        name = request.POST.get("name")
+        email = request.POST.get("email")
+        message = request.POST.get("message")
+
+        # Save to database
+        ContactMessage.objects.create(
+            name=name,
+            email=email,
+            message=message
+        )
+
+        # Send email notification
+        send_mail(
+            subject=f"New EduVoteGH Contact Message from {name}",
+            message=f"Name: {name}\nEmail: {email}\n\nMessage:\n{message}",
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=["eduvote.gh@gmail.com"],
+            fail_silently=True
+        )
+
+        return render(request, "core/contact.html", {"success": True})
+
+    return render(request, "core/contact.html")
+
+
+def contact_view(request):
+
+    success = False
+
+    if request.method == "POST":
+
+        name = request.POST.get("name")
+        email = request.POST.get("email")
+        message = request.POST.get("message")
+
+        ContactMessage.objects.create(
+            name=name,
+            email=email,
+            message=message
+        )
+
+        success = True
+
+    return render(request, "core/contact.html", {"success": success})

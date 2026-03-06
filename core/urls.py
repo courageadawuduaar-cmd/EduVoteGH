@@ -1,6 +1,7 @@
 from django.urls import path
 from . import views
 from core import views
+from .views import contact_view
 
 
 urlpatterns = [
@@ -14,6 +15,7 @@ urlpatterns = [
     path('control/analytics/', views.admin_analytics, name='admin_analytics'),
     path('results/<int:election_id>/', views.election_results, name='election_results'),
     path('export-results/<int:election_id>/', views.export_results_pdf, name='export_results_pdf'),
+    path("contact/", contact_view, name="contact"),
     path('upload-voters/', views.upload_voters, name='upload_voters'),
     path(
     'results-data/<int:election_id>/<int:position_id>/',

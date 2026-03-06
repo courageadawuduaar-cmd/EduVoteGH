@@ -1,15 +1,141 @@
 {% extends "core/base.html" %}
+
 {% block content %}
+
+<style>
+
+.terms-container{
+max-width:900px;
+margin:auto;
+padding-top:30px;
+}
+
+.terms-header{
+text-align:center;
+margin-bottom:35px;
+}
+
+.terms-header h1{
+font-weight:700;
+}
+
+.terms-header p{
+color:#666;
+}
+
+.terms-card{
+background:#ffffff;
+padding:25px;
+border-left:5px solid #0d6efd;
+border-radius:8px;
+margin-bottom:20px;
+box-shadow:0 4px 10px rgba(0,0,0,0.08);
+transition:0.3s;
+}
+
+.terms-card:hover{
+transform:translateY(-4px);
+}
+
+.terms-card h4{
+font-weight:600;
+margin-bottom:10px;
+}
+
+.terms-card ul{
+padding-left:18px;
+}
+
+</style>
+
+
+<div class="terms-container">
+
+<div class="terms-header">
+
 <h1>Terms of Service</h1>
 
-<p>By using EduVote, you agree to:</p>
+<p>
+Please read these terms carefully before using the EduVoteGH platform.
+</p>
+
+</div>
+
+
+<div class="terms-card">
+
+<h4>Use of the Platform</h4>
+
+<p>
+EduVoteGH provides a secure digital election system for educational
+institutions. Users must only use the platform for legitimate
+election-related activities.
+</p>
+
+</div>
+
+
+<div class="terms-card">
+
+<h4>User Responsibilities</h4>
 
 <ul>
-  <li>Provide accurate information</li>
-  <li>Vote only once per election</li>
-  <li>Respect election integrity</li>
+<li>Provide accurate and truthful information</li>
+<li>Vote only once in any election</li>
+<li>Respect the integrity and fairness of elections</li>
+<li>Avoid any attempt to manipulate election results</li>
 </ul>
 
-<p>Violation may result in access restriction.</p>
+</div>
+
+
+<div class="terms-card">
+
+<h4>Election Integrity</h4>
+
+<p>
+EduVoteGH is designed to ensure transparency and fairness in
+elections. Any attempt to compromise the system or manipulate
+votes is strictly prohibited.
+</p>
+
+</div>
+
+
+<div class="terms-card">
+
+<h4>Violation of Terms</h4>
+
+<p>
+Violation of these terms may result in suspension of access
+to the platform and possible restriction from participating
+in future elections.
+</p>
+
+</div>
+
+
+<div class="terms-card">
+
+<h4>Platform Rights</h4>
+
+<p>
+EduVoteGH reserves the right to update these terms at any time
+to improve the security, reliability, and functionality of
+the platform.
+</p>
+
+</div>
+
+
+<div class="text-center mt-4 text-muted">
+
+<small>
+© {% now "Y" %} EduVoteGH. All rights reserved.
+</small>
+
+</div>
+
+</div>
 
 {% endblock %}

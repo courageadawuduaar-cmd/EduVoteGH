@@ -1,16 +1,151 @@
 {% extends "core/base.html" %}
+
 {% block content %}
+
+<style>
+
+.privacy-container{
+max-width:900px;
+margin:auto;
+padding-top:30px;
+}
+
+.privacy-header{
+text-align:center;
+margin-bottom:35px;
+}
+
+.privacy-header h1{
+font-weight:700;
+}
+
+.privacy-header p{
+color:#666;
+}
+
+.privacy-card{
+background:#ffffff;
+padding:25px;
+border-left:5px solid #198754;
+border-radius:8px;
+margin-bottom:20px;
+box-shadow:0 4px 10px rgba(0,0,0,0.08);
+transition:0.3s;
+}
+
+.privacy-card:hover{
+transform:translateY(-4px);
+}
+
+.privacy-card h4{
+font-weight:600;
+margin-bottom:10px;
+}
+
+</style>
+
+
+<div class="privacy-container">
+
+<div class="privacy-header">
+
 <h1>Privacy Policy</h1>
 
-<p>EduVote respects your privacy.</p>
+<p>
+Your privacy and data security are very important to us at EduVoteGH.
+</p>
 
-<h3>Information We Collect</h3>
-<p>We collect voter identification data for election verification purposes only.</p>
+</div>
 
-<h3>How We Use Information</h3>
-<p>Data is used strictly for conducting secure digital elections.</p>
 
-<h3>Data Protection</h3>
-<p>We implement encryption and access controls to protect user data.</p>
+<div class="privacy-card">
+
+<h4>Information We Collect</h4>
+
+<p>
+EduVoteGH collects limited voter identification information such as
+names, student IDs, or institutional credentials depending on the
+requirements of the election being conducted. This information is used
+strictly for voter verification purposes.
+</p>
+
+</div>
+
+
+<div class="privacy-card">
+
+<h4>How We Use Your Information</h4>
+
+<p>
+The information collected is used solely for conducting secure
+digital elections. We do not sell, rent, or distribute your personal
+data to third parties.
+</p>
+
+</div>
+
+
+<div class="privacy-card">
+
+<h4>Data Protection</h4>
+
+<p>
+EduVoteGH implements strong security measures including access
+controls, encryption, and secure server infrastructure to protect
+user data from unauthorized access or misuse.
+</p>
+
+</div>
+
+
+<div class="privacy-card">
+
+<h4>Data Retention</h4>
+
+<p>
+Election data may be stored temporarily to allow election verification,
+auditing, and result validation. After the required retention period,
+sensitive voter information may be archived or securely deleted.
+</p>
+
+</div>
+
+
+<div class="privacy-card">
+
+<h4>User Rights</h4>
+
+<p>
+Users have the right to request clarification on how their information
+is used within the platform. Educational institutions administering
+the election may also manage voter data in accordance with their
+internal policies.
+</p>
+
+</div>
+
+
+<div class="privacy-card">
+
+<h4>Policy Updates</h4>
+
+<p>
+EduVoteGH reserves the right to update this privacy policy when
+necessary to improve transparency, security, and compliance with
+data protection standards.
+</p>
+
+</div>
+
+
+<div class="text-center mt-4 text-muted">
+
+<small>
+© {% now "Y" %} EduVoteGH. All rights reserved.
+</small>
+
+</div>
+
+</div>
 
 {% endblock %}
