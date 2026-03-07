@@ -54,7 +54,6 @@ color:#444;
 }
 
 </style>
-
 {% endblock %}
 
 
@@ -84,7 +83,7 @@ color:#444;
 </div>
 </div>
 
-
+<div id="results-container">
 {% for item in results %}
 
 <div class="card mb-4 shadow-sm">
@@ -95,7 +94,6 @@ color:#444;
 
 <div class="card-body">
 
-
 {% for candidate in item.candidates %}
 
 <div class="candidate-row">
@@ -104,22 +102,25 @@ color:#444;
 
 {% if candidate.photo %}
 <img src="{{ candidate.photo.url }}"
-class="candidate-img
+width="50"
+height="50"
+style="width:50px;height:50px;object-fit:cover;border-radius:50%;flex-shrink:0;"
+class="
 {% if not item.is_tie and item.winner and candidate.id == item.winner.id %}
 winner-img
-{% endif %}"
-style="width:50px;height:50px;object-fit:cover;border-radius:50%;">
+{% endif %}
+">
 {% else %}
 <img src="https://via.placeholder.com/50"
-class="candidate-img"
-style="width:50px;height:50px;border-radius:50%;">
+width="50"
+height="50"
+style="width:50px;height:50px;object-fit:cover;border-radius:50%;flex-shrink:0;">
 {% endif %}
 
 
 <div class="candidate-info">
 
 <!-- NAME -->
-
 <div class="candidate-name">
 
 {% if not item.is_tie and item.winner and candidate.id == item.winner.id %}
@@ -130,9 +131,7 @@ style="width:50px;height:50px;border-radius:50%;">
 
 </div>
 
-
 <!-- BAR -->
-
 <div class="bar-container">
 
 <div class="vote-bar"
@@ -144,28 +143,24 @@ background-color:
 #3498db
 {% endif %};">
 &nbsp;
-
 </div>
 
+</div>
 
 <!-- VOTE TEXT -->
-
 <div class="vote-text">
-
-{{ candidate.votes_count }} votes
-({{ candidate.percentage }}%)
-
+{{ candidate.votes_count }} votes ({{ candidate.percentage }}%)
 </div>
 
-</div>
+</div> <!-- candidate-info -->
 
-</div>
+</div> <!-- candidate-row -->
 
 {% endfor %}
 
-</div>
+</div> <!-- card-body -->
 
-</div>
+</div> <!-- card -->
 
 {% endfor %}
 
@@ -227,25 +222,24 @@ Tamper-proof vote tracking enabled
 
 function refreshResults(){
 
-    fetch(window.location.href)
+fetch(window.location.href)
 
-    .then(response => response.text())
+.then(response => response.text())
 
-    .then(html => {
+.then(html => {
 
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(html, "text/html");
+const parser = new DOMParser();
+const doc = parser.parseFromString(html, "text/html");
 
-        const newContent = doc.querySelector("body").innerHTML;
+const newResults = doc.querySelector("#results-container").innerHTML;
 
-        document.querySelector("body").innerHTML = newContent;
+document.querySelector("#results-container").innerHTML = newResults;
 
-    });
+});
 
 }
 
 setInterval(refreshResults, 5000);
 
 </script>
-
 {% endblock %}
