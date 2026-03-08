@@ -1,150 +1,241 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <meta charset="utf-8">
-    <style>
-        body {
-            font-family: "Times New Roman", serif;
-            font-size: 14px;
-            margin: 40px;
-            color: #000;
-        }
+<meta charset="utf-8">
 
-        .container {
-            width: 100%;
-            text-align: center;
-        }
+<style>
 
-        .header {
-            border-bottom: 3px solid #000;
-            padding-bottom: 10px;
-            margin-bottom: 30px;
-        }
+body{
+    font-family: Arial, Helvetica, sans-serif;
+    font-size:13px;
+    margin:40px;
+    color:#1a1a1a;
+}
 
-        .title {
-            font-size: 22px;
-            font-weight: bold;
-            text-transform: uppercase;
-        }
+/* HEADER */
 
-        .subtitle {
-            font-size: 16px;
-            margin-top: 5px;
-        }
+.header{
+    text-align:center;
+    border-bottom:4px solid #b00020;
+    padding-bottom:15px;
+    margin-bottom:30px;
+}
 
-        .generated {
-            font-size: 12px;
-            margin-top: 10px;
-        }
+.institution{
+    font-size:26px;
+    font-weight:bold;
+    letter-spacing:1px;
+}
 
-        .summary-box {
-            width: 60%;
-            margin: 20px auto;
-            border: 1px solid #000;
-            padding: 15px;
-            text-align: left;
-        }
+.system-name{
+    font-size:18px;
+    font-weight:bold;
+    margin-top:4px;
+}
 
-        .summary-title {
-            font-weight: bold;
-            margin-bottom: 10px;
-            text-align: center;
-            text-transform: uppercase;
-        }
+.certificate-title{
+    font-size:14px;
+    margin-top:6px;
+    text-transform:uppercase;
+    font-weight:bold;
+}
 
-        .position-title {
-            margin-top: 40px;
-            font-weight: bold;
-            text-transform: uppercase;
-            text-align: left;
-        }
+.generated{
+    font-size:11px;
+    color:#666;
+    margin-top:6px;
+}
 
-        table {
-            width: 80%;
-            margin: 15px auto;
-            border-collapse: collapse;
-        }
+/* SUMMARY SECTION */
 
-        th {
-            background-color: #000080;
-            color: #fff;
-            padding: 8px;
-            border: 1px solid #000;
-            text-align: center;
-        }
+.summary-box{
+    border:1px solid #ddd;
+    margin-top:20px;
+}
 
-        td {
-            padding: 8px;
-            border: 1px solid #000;
-            text-align: center;
-        }
+.summary-header{
+    background:#f3f3f3;
+    padding:8px;
+    font-weight:bold;
+    text-transform:uppercase;
+}
 
-        .winner {
-            font-weight: bold;
-        }
+.summary-item{
+    padding:10px;
+    border-top:1px solid #eee;
+}
 
-        .footer {
-            margin-top: 60px;
-            text-align: center;
-            font-size: 12px;
-            border-top: 1px solid #000;
-            padding-top: 10px;
-        }
+/* POSITION SECTION */
 
-    </style>
+.position-section{
+    margin-top:35px;
+}
+
+.position-title{
+    font-size:16px;
+    font-weight:bold;
+    border-left:6px solid #b00020;
+    padding-left:8px;
+    margin-bottom:10px;
+}
+
+/* TABLE */
+
+.results-table{
+    width:100%;
+    border-collapse:collapse;
+}
+
+.results-table th{
+    background:#2c2c2c;
+    color:white;
+    padding:9px;
+    font-size:12px;
+    text-align:left;
+}
+
+.results-table td{
+    padding:9px;
+    border-bottom:1px solid #e5e5e5;
+}
+
+.vote{
+    text-align:center;
+}
+
+.percent{
+    text-align:center;
+}
+
+/* WINNER */
+
+.winner-row{
+    background:#f7f7f7;
+    font-weight:bold;
+}
+
+.winner-tag{
+    color:#b00020;
+    font-weight:bold;
+}
+
+/* FOOTER */
+
+.footer{
+    margin-top:50px;
+    border-top:1px solid #ccc;
+    padding-top:10px;
+    font-size:11px;
+    color:#666;
+}
+
+</style>
+
 </head>
 
 <body>
-    <div class="container">
 
-        <div class="header">
-            <div class="title">FRANCO SRC ELECTIONS</div>
-            <div class="subtitle">OFFICIAL DECLARATION OF RESULTS</div>
-            <div class="generated">
-                Generated on: {{ now }}
-            </div>
-        </div>
+<!-- HEADER -->
+<h1 style="color:red;">NEW TEMPLATE TEST</h1>
+<div class="header">
 
-        <!-- Election Summary -->
-        <div class="summary-box">
-            <div class="summary-title">Election Summary</div>
-            <p><strong>Total Registered Voters:</strong> {{ total_voters }}</p>
-            <p><strong>Total Votes Cast:</strong> {{ total_votes }}</p>
-            <p><strong>Voter Turnout:</strong> {{ turnout_percentage }}%</p>
-        </div>
+<div class="institution">
+{{ election.institution.name }}
+</div>
 
-        <!-- Results Per Position -->
-        {% for position in positions %}
-            <div class="position-title">
-                Position: {{ position.name }}
-            </div>
+<div class="system-name">
+EduVote
+</div>
 
-            <table>
-                <tr>
-                    <th>Candidate</th>
-                    <th>Votes</th>
-                    <th>Percentage</th>
-                </tr>
+<div class="certificate-title">
+OFFICIAL CERTIFICATE OF DECLARATION OF RESULTS
+</div>
 
-                {% for candidate in position.candidates %}
-                <tr class="{% if candidate.is_winner %}winner{% endif %}">
-                    <td>
-                        {{ candidate.name }}
-                        {% if candidate.is_winner %}
-                            (Winner)
-                        {% endif %}
-                    </td>
-                    <td>{{ candidate.vote_count }}</td>
-                    <td>{{ candidate.percentage }}%</td>
-                </tr>
-                {% endfor %}
-            </table>
-        {% endfor %}
+<div class="generated">
+Generated on {{ now }}
+</div>
 
-        <div class="footer">
-            This document is computer generated and serves as the official certified election result.
-        </div>
+</div>
 
-    </div>
+
+<!-- SUMMARY -->
+
+<div class="summary-box">
+
+<div class="summary-header">
+Election Summary
+</div>
+
+<div class="summary-item">
+<strong>Total Registered Voters:</strong> {{ total_voters }}
+</div>
+
+<div class="summary-item">
+<strong>Total Votes Cast:</strong> {{ total_votes }}
+</div>
+
+<div class="summary-item">
+<strong>Voter Turnout:</strong> {{ turnout_percentage }}%
+</div>
+
+</div>
+
+
+<!-- RESULTS PER POSITION -->
+
+{% for position in positions %}
+
+<div class="position-section">
+
+<div class="position-title">
+{{ position.name }}
+</div>
+
+<table class="results-table">
+
+<tr>
+<th>Candidate</th>
+<th class="vote">Votes</th>
+<th class="percent">Percentage</th>
+</tr>
+
+{% for candidate in position.candidates %}
+
+<tr class="{% if candidate.is_winner %}winner-row{% endif %}">
+
+<td>
+{{ candidate.name }}
+
+{% if candidate.is_winner %}
+<span class="winner-tag"> — WINNER</span>
+{% endif %}
+
+</td>
+
+<td class="vote">
+{{ candidate.vote_count }}
+</td>
+
+<td class="percent">
+{{ candidate.percentage }}%
+</td>
+
+</tr>
+
+{% endfor %}
+
+</table>
+
+</div>
+
+{% endfor %}
+
+
+<!-- FOOTER -->
+
+<div class="footer">
+This document is automatically generated by EduVote and serves as the official certified election result.
+</div>
+
 </body>
 </html>

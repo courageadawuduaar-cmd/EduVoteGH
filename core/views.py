@@ -49,11 +49,16 @@ from reportlab.graphics.barcode import qr
 from reportlab.graphics.shapes import Drawing
 import uuid
 
+import os
+from django.contrib.auth.hashers import make_password
 
 from .models import ContactMessage
 from django.core.mail import send_mail
 from django.conf import settings
+from reportlab.platypus import Image
+from reportlab.graphics.shapes import Circle
 
+from reportlab.graphics.shapes import Circle, String
 
 def voter_login(request):
     if request.method == "POST":
@@ -263,57 +268,58 @@ def election_results(request, election_id):
 
     return render(request, 'core/results.html', context)
 
+
 @login_required
 def upload_voters(request):
     if request.method == 'POST':
         form = VoterCSVUploadForm(request.POST, request.FILES)
+
         if form.is_valid():
             file = request.FILES['csv_file']
 
             try:
-                df = pd.read_excel(file)
+                df = pd.read_excel(file, engine="openpyxl")
             except Exception:
-                messages.error(request, "Invalid Excel file. Please provide a valid .xlsx file.")
+                messages.error(request, "Invalid Excel file. Upload a valid .xlsx file.")
                 return render(request, 'core/upload_voters.html', {'form': form})
-
-            institution = Institution.objects.first()
-            election = Election.objects.first()
-            credentials = []
 
             required_columns = ['full_name', 'phone', 'username']
 
             for col in required_columns:
                 if col not in df.columns:
-                    messages.error(request, f"Missing required column: {col}")
+                    messages.error(request, f"Missing column: {col}")
                     return render(request, 'core/upload_voters.html', {'form': form})
 
-            for index, row in df.iterrows():
+            institution = Institution.objects.first()
+            election = Election.objects.first()
+
+            users_to_create = []
+            voters_to_create = []
+            credentials = []
+
+            # Get existing usernames (duplicate protection)
+            existing_usernames = set(
+                User.objects.values_list('username', flat=True)
+            )
+
+            for _, row in df.iterrows():
 
                 full_name = str(row['full_name']).strip()
                 phone = str(row['phone']).strip()
                 username = str(row['username']).strip()
 
-                if not username:
+                if not username or username in existing_usernames:
                     continue
 
-                user, created = User.objects.get_or_create(username=username)
-
-                # ALWAYS generate new password
                 password = ''.join(random.choices(string.digits, k=8))
 
-                user.set_password(password)
-                user.first_name = full_name
-                user.save()
-
-                # Create or update voter
-                voter, v_created = Voter.objects.get_or_create(
-                    user=user,
-                    institution=institution
+                user = User(
+                    username=username,
+                    first_name=full_name,
+                    password=make_password(password)
                 )
 
-                voter.phone = phone
-                voter.elections.add(election)
-                voter.save()
+                users_to_create.append(user)
 
                 credentials.append({
                     "full_name": full_name,
@@ -322,47 +328,58 @@ def upload_voters(request):
                     "password": password
                 })
 
-            # Generate downloadable CSV
-            creds_df = pd.DataFrame(credentials)
+                existing_usernames.add(username)
+
+            # Bulk create users
+            User.objects.bulk_create(users_to_create)
+
+            # Fetch created users
+            users = User.objects.filter(
+                username__in=[c["username"] for c in credentials]
+            )
+
+            user_map = {user.username: user for user in users}
+
+            for cred in credentials:
+                voter = Voter(
+                    user=user_map[cred["username"]],
+                    institution=institution,
+                    phone=cred["phone"]
+                )
+                voters_to_create.append(voter)
+
+            # Bulk create voters
+            Voter.objects.bulk_create(voters_to_create)
+
+            # Assign election
+            voters = Voter.objects.filter(
+                user__username__in=[c["username"] for c in credentials]
+            )
+
+            for voter in voters:
+                voter.elections.add(election)
+
+            # Generate CSV download
             response = HttpResponse(content_type='text/csv')
             response['Content-Disposition'] = 'attachment; filename="voter_credentials.csv"'
-            creds_df.to_csv(path_or_buf=response, index=False)
+
+            writer = csv.writer(response)
+            writer.writerow(['full_name', 'username', 'phone', 'password'])
+
+            for cred in credentials:
+                writer.writerow([
+                    cred['full_name'],
+                    cred['username'],
+                    cred['phone'],
+                    cred['password']
+                ])
 
             return response
+
     else:
         form = VoterCSVUploadForm()
 
     return render(request, 'core/upload_voters.html', {'form': form})
-
-def results_data(request, election_id, position_id):
-
-    candidates = Candidate.objects.filter(
-        position_id=position_id,
-        election_id=election_id
-    )
-
-    votes = []
-    for candidate in candidates:
-        count = Vote.objects.filter(candidate=candidate).count()
-        votes.append(count)
-
-    total_votes = Vote.objects.filter(
-        election_id=election_id
-    ).count()
-
-    return JsonResponse({
-        'votes': votes,
-        'total_votes': total_votes
-    })
-
-def home(request):
-    elections = Election.objects.all().order_by('-id')
-    now = timezone.now()
-
-    return render(request, 'core/home.html', {
-        'elections': elections,
-        'now': now
-    })
 
 
 # ================================
@@ -555,19 +572,41 @@ Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}
         spaceAfter=6,
     )
 
+    ##logo_path = os.path.join(settings.BASE_DIR, "static", "images", "institution_logo.png")
+
+    try:
+        logo = Image(logo_path, width=80, height=80)
+        logo.hAlign = "CENTER"
+        elements.append(logo)
+        elements.append(Spacer(1,10))
+    except:
+        pass
+
+
     # -------------------------------------------------
-    # GOVERNMENT HEADER
+    # HEADER
     # -------------------------------------------------
+
     elements.append(Paragraph(
-        "<b>REPUBLIC OF GHANA</b>", centered))
+        f"<b>{election.institution.name.upper()}</b>",
+        styles["Title"]
+    ))
+
+    elements.append(Spacer(1,6))
+
     elements.append(Paragraph(
-        "<b>EDUVOTEGH</b>", centered))
-    elements.append(Spacer(1, 6))
+        "<b>EduVoteGH</b>",
+        centered
+    ))
+
+    elements.append(Spacer(1,6))
 
     elements.append(Paragraph(
         "<b>OFFICIAL CERTIFICATE OF DECLARATION OF RESULTS</b>",
-        styles["Title"]
+        centered
     ))
+
+    elements.append(Spacer(1,20))
 
     elements.append(Spacer(1, 20))
 
@@ -655,12 +694,23 @@ Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}
         results_table = Table(table_data, colWidths=[3*inch, 1.2*inch, 1.2*inch])
 
         results_table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.black),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
-            ('ALIGN', (1, 1), (-1, -1), 'CENTER'),
-            ('ROWBACKGROUNDS', (0, 1), (-1, -1),
-             [colors.whitesmoke, colors.transparent]),
+
+        ('BACKGROUND',(0,0),(-1,0),colors.darkblue),
+        ('TEXTCOLOR',(0,0),(-1,0),colors.white),
+
+        ('FONTNAME',(0,0),(-1,0),'Helvetica-Bold'),
+
+        ('GRID',(0,0),(-1,-1),0.5,colors.grey),
+
+        ('ALIGN',(1,1),(-1,-1),'CENTER'),
+
+        ('ROWBACKGROUNDS',
+        (0,1),(-1,-1),
+        [colors.whitesmoke,colors.lightgrey]),
+
+        ('BOTTOMPADDING',(0,0),(-1,0),10),
+        ('TOPPADDING',(0,0),(-1,0),10),
+
         ]))
 
         elements.append(results_table)
@@ -702,6 +752,23 @@ Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}
         styles["Normal"]
     ))
 
+    from reportlab.graphics.shapes import Drawing
+
+    seal = Drawing(120,120)
+
+    seal.add(Circle(60,60,50))
+    seal.add(Circle(60,60,45))
+
+    seal.add(String(
+        60,
+        60,
+        "OFFICIAL\nSEAL",
+        textAnchor="middle"
+    ))
+
+    elements.append(Spacer(1,10))
+    elements.append(seal)
+
     elements.append(Spacer(1, 25))
 
     # -------------------------------------------------
@@ -724,12 +791,32 @@ Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}
     # WATERMARK + FOOTER
     # -------------------------------------------------
     def add_watermark(canvas_obj, doc):
+
         canvas_obj.saveState()
+
+        # Certificate Border
+        canvas_obj.setLineWidth(3)
+        canvas_obj.rect(
+            25, 25,
+            A4[0] - 50,
+            A4[1] - 50
+        )
+
+        # Inner Border
+        canvas_obj.setLineWidth(1)
+        canvas_obj.rect(
+            35, 35,
+            A4[0] - 70,
+            A4[1] - 70
+        )
+
+        # Watermark
         canvas_obj.setFont("Helvetica-Bold", 70)
-        canvas_obj.setFillColorRGB(0.92, 0.92, 0.92)
+        canvas_obj.setFillGray(0.9)
         canvas_obj.translate(300, 450)
         canvas_obj.rotate(45)
-        canvas_obj.drawCentredString(0, 0, "EDUVOTEGH")
+        canvas_obj.drawCentredString(0, 0, "EDUVOTE")
+
         canvas_obj.restoreState()
 
         # Footer
@@ -797,3 +884,29 @@ def contact_view(request):
         success = True
 
     return render(request, "core/contact.html", {"success": success})
+
+
+def home(request):
+    return render(request, 'core/home.html')
+
+from django.http import JsonResponse
+from .models import Election
+
+def cast_vote(request):
+    if request.method == "POST":
+        election = Election.objects.first()  # or get current election
+
+        # BLOCK voting if election inactive
+        if not election.is_active:
+            return JsonResponse({
+                "success": False,
+                "message": "Voting is currently closed."
+            }, status=403)
+
+        # Continue with voting logic
+        # save vote here
+
+        return JsonResponse({
+            "success": True,
+            "message": "Vote cast successfully."
+        })
