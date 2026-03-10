@@ -2,6 +2,14 @@ from django.contrib import admin
 from .models import Institution, Election, Position, Candidate, Voter, Vote, ContactMessage
 
 
+# --------------------------------
+# EduVoteGH Admin Branding
+# --------------------------------
+admin.site.site_header = "EduVoteGH Administration"
+admin.site.site_title = "EduVoteGH Admin Portal"
+admin.site.index_title = "Welcome to EduVoteGH Control Panel"
+
+
 admin.site.register(Institution)
 admin.site.register(Election)
 admin.site.register(Position)
