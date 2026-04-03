@@ -75,12 +75,23 @@
                                 <div class="candidate-img bg-secondary"></div>
                             {% endif %}
 
-                            <div class="flex-grow-1">
-                                <strong>{{ candidate.user.username }}</strong>
-                                {% if candidate.manifesto %}
-                                    <p class="candidate-manifesto">{{ candidate.manifesto }}</p>
-                                {% endif %}
-                            </div>
+                            
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div>
+                                        <strong>{{ candidate.user.get_full_name|default:candidate.user.username }}</strong>
+                                        {% if candidate.manifesto %}
+                                            <p class="candidate-manifesto">
+                                                {{ candidate.manifesto|truncatechars:80 }}
+                                            </p>
+                                        {% endif %}
+                                    </div>
+                                    <a href="{% url 'candidate_profile' candidate.id %}"
+                                    class="btn btn-outline-secondary btn-sm ms-2 flex-shrink-0"
+                                    onclick="event.stopPropagation();">
+                                        View Profile
+                                    </a>
+                                </div>
+                            
 
                             <input 
                                 class="form-check-input ms-2 position-radio"

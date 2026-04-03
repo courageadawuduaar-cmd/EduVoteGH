@@ -276,7 +276,21 @@ def vote_page(request, election_id):
                         continue
 
         if votes_created > 0:
-            messages.success(request, "Your votes have been submitted successfully!")
+            # Collect all receipt codes for this voter in this election
+            receipts = Vote.objects.filter(
+                voter=voter,
+                election=election
+            ).values_list('receipt_code', flat=True)
+
+            receipt_list = " | ".join(receipts)
+
+            messages.success(
+                request,
+                f"Your votes have been submitted successfully! "
+                f"Your receipt codes: {receipt_list}"
+            )
+            return redirect('vote_receipt', election_id=election.id)
+
         else:
             messages.warning(request, "No valid votes were submitted. Please select a candidate for each position.")
 
@@ -1303,4 +1317,405 @@ def turnout_data(request):
         "remaining_voters": remaining,
         "turnout_percentage": turnout_percentage
     })
+
+
+def verify_vote(request):
+    result = None
+    code = None
+    error = None
+
+    if request.method == "POST":
+        code = request.POST.get("receipt_code", "").strip().upper()
+
+        if not code:
+            error = "Please enter a receipt code."
+        else:
+            try:
+                vote = Vote.objects.select_related(
+                    'election', 'position', 'voter__user'
+                ).get(receipt_code=code)
+
+                result = {
+                    "status": "Recorded",
+                    "election": vote.election.title,
+                    "position": vote.position.name,
+                    "time_cast": vote.timestamp.strftime("%B %d, %Y at %I:%M %p"),
+                    "institution": vote.election.institution.name,
+                }
+
+            except Vote.DoesNotExist:
+                error = "No vote found with that receipt code. Please check and try again."
+
+    return render(request, "core/verify_vote.html", {
+        "result": result,
+        "code": code,
+        "error": error,
+    })
+
+
+@login_required
+def vote_receipt(request, election_id):
+    try:
+        voter = Voter.objects.get(user=request.user)
+    except Voter.DoesNotExist:
+        return redirect('voter_login')
+
+    election = get_object_or_404(Election, id=election_id)
+
+    # Get all votes cast by this voter in this election
+    votes = Vote.objects.filter(
+        voter=voter,
+        election=election
+    ).select_related('position').order_by('position__name')
+
+    if not votes.exists():
+        messages.warning(request, "No votes found for this election.")
+        return redirect('vote_dashboard')
+
+    return render(request, "core/vote_receipt.html", {
+        "voter": voter,
+        "election": election,
+        "votes": votes,
+    })
+
+
+def candidate_profile(request, candidate_id):
+    candidate = get_object_or_404(
+        Candidate.objects.select_related(
+            'user', 'position', 'election', 'election__institution'
+        ),
+        id=candidate_id
+    )
+
+    # Vote count for this candidate
+    vote_count = Vote.objects.filter(candidate=candidate).count()
+
+    # Total votes for this position (to calculate percentage)
+    position_total = Vote.objects.filter(
+        position=candidate.position
+    ).count()
+
+    percentage = (
+        round((vote_count / position_total) * 100, 1)
+        if position_total > 0 else 0
+    )
+
+    # Other candidates in same position (for comparison)
+    other_candidates = Candidate.objects.filter(
+        position=candidate.position
+    ).exclude(id=candidate.id).select_related('user')
+
+    context = {
+        'candidate': candidate,
+        'vote_count': vote_count,
+        'percentage': percentage,
+        'other_candidates': other_candidates,
+        'election': candidate.election,
+        'show_results': candidate.election.is_closed or request.user.is_staff,
+    }
+
+    return render(request, 'core/candidate_profile.html', context)
+
+
+
+@login_required
+def download_vote_receipt(request, election_id):
+    try:
+        voter = Voter.objects.get(user=request.user)
+    except Voter.DoesNotExist:
+        return redirect('voter_login')
+
+    election = get_object_or_404(Election, id=election_id)
+
+    votes = Vote.objects.filter(
+        voter=voter,
+        election=election
+    ).select_related('position', 'candidate__user').order_by('position__name')
+
+    if not votes.exists():
+        messages.warning(request, "No votes found for this election.")
+        return redirect('vote_dashboard')
+
+    # Colors
+    DARK_GREEN = colors.HexColor('#1B5E20')
+    GOLD       = colors.HexColor('#C9A84C')
+    LIGHT_GREEN = colors.HexColor('#E8F5E9')
+    MID_GREY   = colors.HexColor('#888888')
+    DARK_GREY  = colors.HexColor('#2c2c2c')
+    WHITE      = colors.white
+
+    # PDF response
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = (
+        f'attachment; filename="VoteReceipt_{voter.user.username}_{election.title}.pdf"'
+    )
+
+    doc = SimpleDocTemplate(
+        response,
+        pagesize=A4,
+        rightMargin=50,
+        leftMargin=50,
+        topMargin=70,
+        bottomMargin=70,
+    )
+
+    elements = []
+    styles = getSampleStyleSheet()
+
+    # Custom styles
+    title_style = ParagraphStyle(
+        'Title',
+        parent=styles['Normal'],
+        fontSize=20,
+        fontName='Helvetica-Bold',
+        textColor=DARK_GREEN,
+        alignment=1,
+        spaceAfter=4,
+    )
+    subtitle_style = ParagraphStyle(
+        'Subtitle',
+        parent=styles['Normal'],
+        fontSize=11,
+        fontName='Helvetica',
+        textColor=MID_GREY,
+        alignment=1,
+        spaceAfter=4,
+    )
+    center_style = ParagraphStyle(
+        'Center',
+        parent=styles['Normal'],
+        fontSize=10,
+        alignment=1,
+        spaceAfter=4,
+        textColor=DARK_GREY,
+    )
+    section_style = ParagraphStyle(
+        'Section',
+        parent=styles['Normal'],
+        fontSize=11,
+        fontName='Helvetica-Bold',
+        textColor=WHITE,
+        leftIndent=8,
+    )
+    body_style = ParagraphStyle(
+        'Body',
+        parent=styles['Normal'],
+        fontSize=10,
+        leading=16,
+        alignment=1,
+        textColor=DARK_GREY,
+    )
+
+    # ─────────────────────────────────────
+    # LOGO — ReportLab only supports PNG/JPG, not SVG
+    # ─────────────────────────────────────
+    for logo_filename in ['logo.png', 'logo.jpg', 'institution_logo.png']:
+        logo_path = os.path.join(settings.BASE_DIR, "static", "images", logo_filename)
+        if os.path.exists(logo_path):
+            try:
+                logo = Image(logo_path, width=80, height=80)
+                logo.hAlign = "CENTER"
+                elements.append(logo)
+                elements.append(Spacer(1, 8))
+                break
+            except Exception:
+                continue
+
+    # ─────────────────────────────────────
+    # HEADER
+    # ─────────────────────────────────────
+    elements.append(Paragraph("EduVoteGH", title_style))
+    elements.append(Paragraph("Official Vote Receipt", subtitle_style))
+    elements.append(Spacer(1, 6))
+
+    # Gold divider
+    divider = Table([['']], colWidths=[6.3*inch])
+    divider.setStyle(TableStyle([
+        ('LINEBELOW', (0, 0), (-1, -1), 2, GOLD),
+        ('LINEABOVE', (0, 0), (-1, -1), 0.5, DARK_GREEN),
+    ]))
+    elements.append(divider)
+    elements.append(Spacer(1, 16))
+
+    # ─────────────────────────────────────
+    # VOTER INFO
+    # ─────────────────────────────────────
+    voter_header = Table(
+        [[Paragraph('VOTER INFORMATION', section_style)]],
+        colWidths=[6.3*inch]
+    )
+    voter_header.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), DARK_GREEN),
+        ('TOPPADDING', (0, 0), (-1, -1), 8),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+        ('LINEBELOW', (0, 0), (-1, -1), 2, GOLD),
+    ]))
+    elements.append(voter_header)
+
+    voter_info = [
+        [Paragraph('<b>Voter Name:</b>', styles['Normal']),
+         Paragraph(voter.user.get_full_name() or voter.user.username, styles['Normal'])],
+        [Paragraph('<b>Username:</b>', styles['Normal']),
+         Paragraph(voter.user.username, styles['Normal'])],
+        [Paragraph('<b>Institution:</b>', styles['Normal']),
+         Paragraph(election.institution.name, styles['Normal'])],
+        [Paragraph('<b>Election:</b>', styles['Normal']),
+         Paragraph(election.title, styles['Normal'])],
+        [Paragraph('<b>Date of Vote:</b>', styles['Normal']),
+         Paragraph(votes.first().timestamp.strftime('%B %d, %Y at %I:%M %p'), styles['Normal'])],
+    ]
+    voter_table = Table(voter_info, colWidths=[2*inch, 4.3*inch])
+    voter_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), LIGHT_GREEN),
+        ('ROWBACKGROUNDS', (0, 0), (-1, -1), [WHITE, LIGHT_GREEN]),
+        ('BOX', (0, 0), (-1, -1), 0.5, DARK_GREEN),
+        ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#cccccc')),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING', (0, 0), (-1, -1), 8),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+        ('LEFTPADDING', (0, 0), (0, -1), 12),
+    ]))
+    elements.append(voter_table)
+    elements.append(Spacer(1, 24))
+
+    # ─────────────────────────────────────
+    # RECEIPT CODES PER POSITION
+    # ─────────────────────────────────────
+    receipt_header = Table(
+        [[Paragraph('VOTE RECEIPT CODES', section_style)]],
+        colWidths=[6.3*inch]
+    )
+    receipt_header.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), DARK_GREEN),
+        ('TOPPADDING', (0, 0), (-1, -1), 8),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+        ('LINEBELOW', (0, 0), (-1, -1), 2, GOLD),
+    ]))
+    elements.append(receipt_header)
+
+    receipt_data = [[
+        Paragraph('<b>Position</b>', styles['Normal']),
+        Paragraph('<b>Receipt Code</b>', styles['Normal']),
+        Paragraph('<b>Time Cast</b>', styles['Normal']),
+    ]]
+
+    for vote in votes:
+        receipt_data.append([
+            Paragraph(vote.position.name, styles['Normal']),
+            Paragraph(
+                f'<b><font color="#1B5E20" size="13">{vote.receipt_code}</font></b>',
+                styles['Normal']
+            ),
+            Paragraph(
+                vote.timestamp.strftime('%I:%M %p'),
+                styles['Normal']
+            ),
+        ])
+
+    receipt_table = Table(
+        receipt_data,
+        colWidths=[2.5*inch, 2.3*inch, 1.5*inch]
+    )
+    receipt_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), DARK_GREY),
+        ('TEXTCOLOR', (0, 0), (-1, 0), WHITE),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 10),
+        ('TOPPADDING', (0, 0), (-1, 0), 10),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 10),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [WHITE, LIGHT_GREEN]),
+        ('BOX', (0, 0), (-1, -1), 0.5, DARK_GREEN),
+        ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#dddddd')),
+        ('ALIGN', (1, 0), (-1, -1), 'CENTER'),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING', (0, 1), (-1, -1), 10),
+        ('BOTTOMPADDING', (0, 1), (-1, -1), 10),
+        ('LEFTPADDING', (0, 1), (0, -1), 10),
+    ]))
+    elements.append(receipt_table)
+    elements.append(Spacer(1, 24))
+
+    # ─────────────────────────────────────
+    # VERIFICATION NOTE
+    # ─────────────────────────────────────
+    elements.append(Paragraph(
+        "Use the receipt codes above to verify your vote at "
+        "<b>eduvotegh.com/verify/</b> — "
+        "Your candidate choice is kept private to protect vote secrecy.",
+        body_style
+    ))
+    elements.append(Spacer(1, 30))
+
+    # ─────────────────────────────────────
+    # QR CODE — links to verify page
+    # ─────────────────────────────────────
+    receipt_codes = " | ".join([v.receipt_code for v in votes])
+    qr_data = (
+        f"EduVoteGH Vote Receipt | "
+        f"Voter: {voter.user.username} | "
+        f"Election: {election.title} | "
+        f"Codes: {receipt_codes}"
+    )
+
+    qr_code = qr.QrCodeWidget(qr_data)
+    bounds = qr_code.getBounds()
+    qr_w = bounds[2] - bounds[0]
+    qr_h = bounds[3] - bounds[1]
+    qr_drawing = Drawing(
+        110, 110,
+        transform=[110./qr_w, 0, 0, 110./qr_h, 0, 0]
+    )
+    qr_drawing.add(qr_code)
+
+    elements.append(Paragraph("<b>Scan to Verify</b>", center_style))
+    elements.append(Spacer(1, 6))
+    qr_table = Table([[qr_drawing]], colWidths=[6.3*inch])
+    qr_table.setStyle(TableStyle([
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+    ]))
+    elements.append(qr_table)
+
+    # ─────────────────────────────────────
+    # WATERMARK + BORDER
+    # ─────────────────────────────────────
+    def add_watermark(canvas_obj, doc):
+        canvas_obj.saveState()
+
+        # Double border
+        canvas_obj.setLineWidth(3)
+        canvas_obj.setStrokeColor(DARK_GREEN)
+        canvas_obj.rect(20, 20, A4[0]-40, A4[1]-40)
+        canvas_obj.setLineWidth(1)
+        canvas_obj.setStrokeColor(GOLD)
+        canvas_obj.rect(26, 26, A4[0]-52, A4[1]-52)
+
+        # Watermark
+        canvas_obj.setFont("Helvetica-Bold", 60)
+        canvas_obj.setFillColor(DARK_GREEN)
+        canvas_obj.setFillAlpha(0.05)
+        canvas_obj.translate(A4[0]/2, A4[1]/2)
+        canvas_obj.rotate(45)
+        canvas_obj.drawCentredString(0, 0, "EDUVOTEGH")
+        canvas_obj.rotate(-45)
+        canvas_obj.translate(-A4[0]/2, -A4[1]/2)
+
+        canvas_obj.restoreState()
+
+        # Footer
+        canvas_obj.setFont("Helvetica", 8)
+        canvas_obj.setFillColor(MID_GREY)
+        canvas_obj.drawCentredString(
+            A4[0]/2, 12,
+            f"EduVoteGH Official Vote Receipt  |  "
+            f"{voter.user.username}  |  "
+            f"Page {doc.page}"
+        )
+
+    doc.build(
+        elements,
+        onFirstPage=add_watermark,
+        onLaterPages=add_watermark
+    )
+
+    return response
 

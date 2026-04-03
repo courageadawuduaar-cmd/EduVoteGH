@@ -1,0 +1,107 @@
+{% extends 'core/base.html' %}
+{% load static %}
+{% block title %}Vote Receipt — EduVoteGH{% endblock %}
+
+{% block content %}
+<div class="container py-5" style="max-width: 600px;">
+
+    <!-- Success Banner -->
+    <div class="text-center mb-4">
+        <div style="width:80px; height:80px; border-radius:50%;
+                    background:#1B5E20; display:flex; align-items:center;
+                    justify-content:center; margin:0 auto 16px;">
+            <span style="font-size:36px; color:white;">✓</span>
+        </div>
+        <h3 class="fw-bold text-success mb-1">Vote Cast Successfully!</h3>
+        <p class="text-muted">Your votes have been securely recorded.</p>
+    </div>
+
+    <!-- Receipt Card -->
+    <div class="card border-0 shadow-sm mb-4"
+         style="border-radius:16px; overflow:hidden;">
+
+        <div class="card-header py-3 text-center"
+             style="background: linear-gradient(135deg, #1B5E20, #0d6efd); color:white;">
+            <h6 class="fw-bold mb-0 text-uppercase" style="letter-spacing:2px;">
+                Official Vote Receipt
+            </h6>
+            <small class="text-white-50">Keep these codes to verify your vote</small>
+        </div>
+
+        <div class="card-body p-4">
+
+            <div class="mb-3 pb-3 border-bottom">
+                <p class="text-muted small mb-1">Election</p>
+                <p class="fw-bold mb-0">{{ election.title }}</p>
+            </div>
+
+            <div class="mb-3 pb-3 border-bottom">
+                <p class="text-muted small mb-1">Institution</p>
+                <p class="fw-bold mb-0">{{ election.institution.name }}</p>
+            </div>
+
+            <div class="mb-3 pb-3 border-bottom">
+                <p class="text-muted small mb-1">Voter</p>
+                <p class="fw-bold mb-0">
+                    {{ voter.user.get_full_name|default:voter.user.username }}
+                </p>
+            </div>
+
+            <!-- Receipt Codes per Position -->
+            <p class="text-muted small mb-2">Receipt Codes by Position</p>
+
+            {% for vote in votes %}
+            <div class="d-flex justify-content-between align-items-center
+                        p-3 mb-2 rounded"
+                 style="background:#f8f9fa; border:1px dashed #dee2e6;">
+
+                <div>
+                    <p class="text-muted small mb-0">{{ vote.position.name }}</p>
+                    <p class="fw-bold mb-0"
+                       style="font-family: monospace; font-size:18px;
+                              color:#1B5E20; letter-spacing:2px;">
+                        {{ vote.receipt_code }}
+                    </p>
+                </div>
+
+                <div class="text-end">
+                    <p class="text-muted small mb-0">Cast at</p>
+                    <p class="small mb-0">
+                        {{ vote.timestamp|date:"M d, Y" }}<br>
+                        {{ vote.timestamp|date:"H:i" }}
+                    </p>
+                </div>
+
+            </div>
+            {% endfor %}
+
+        </div>
+
+        <div class="card-footer bg-white py-3 text-center">
+            <small class="text-muted">
+                Screenshot or write down your receipt codes.<br>
+                Use them at the
+                <a href="{% url 'verify_vote' %}">verification page</a>
+                to confirm your vote was recorded.
+            </small>
+        </div>
+
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="d-flex gap-2 justify-content-center flex-wrap">
+        <a href="{% url 'vote_dashboard' %}" class="btn btn-outline-secondary px-4">
+            Back to Dashboard
+        </a>
+        <a href="{% url 'verify_vote' %}" class="btn btn-success px-4">
+            Verify My Vote
+        </a>
+        <!-- ✅ Download button -->
+        <a href="{% url 'download_vote_receipt' election.id %}"
+        class="btn btn-dark px-4">
+            Download Receipt PDF
+        </a>
+    </div>
+
+</div>
+{% endblock %}

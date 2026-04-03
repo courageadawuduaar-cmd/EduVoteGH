@@ -19,4 +19,11 @@ urlpatterns = [
     # ✅ Moved out of /admin/ prefix to avoid Django admin interception
     path('api/election-stats/', views.election_stats_api, name='election_stats'),
     path('api/turnout/', views.turnout_data, name='turnout_data'),
+
+    path('verify/', views.verify_vote, name='verify_vote'),
+
+    path('vote/<int:election_id>/receipt/', views.vote_receipt, name='vote_receipt'),
+    path('candidate/<int:candidate_id>/', views.candidate_profile, name='candidate_profile'),
+
+    path('vote/<int:election_id>/receipt/download/', views.download_vote_receipt, name='download_vote_receipt'),
 ]

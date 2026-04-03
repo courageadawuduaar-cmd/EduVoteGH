@@ -1,0 +1,105 @@
+{% extends 'core/base.html' %}
+{% block title %}Verify Your Vote — EduVoteGH{% endblock %}
+
+{% block content %}
+<div class="container py-5" style="max-width: 560px;">
+
+    <div class="text-center mb-4">
+        <h3 class="fw-bold mb-1">Verify Your Vote</h3>
+        <p class="text-muted">
+            Enter your receipt code to confirm your vote was recorded.
+            Your candidate choice will never be revealed.
+        </p>
+    </div>
+
+    <!-- Verify Form -->
+    <div class="card border-0 shadow-sm mb-4" style="border-radius:16px;">
+        <div class="card-body p-4">
+
+            <form method="POST" novalidate>
+                {% csrf_token %}
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Receipt Code</label>
+                    <input type="text"
+                           name="receipt_code"
+                           class="form-control form-control-lg text-center"
+                           placeholder="e.g. EVGH-7F4K92"
+                           value="{{ code|default:'' }}"
+                           style="font-family:monospace; letter-spacing:3px; font-size:20px;"
+                           autofocus>
+                    <div class="form-text text-center">
+                        Receipt codes start with <strong>EVGH-</strong>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-success w-100 py-2 fw-semibold">
+                    Verify Vote
+                </button>
+            </form>
+
+        </div>
+    </div>
+
+    <!-- Error -->
+    {% if error %}
+    <div class="alert alert-danger text-center">
+        {{ error }}
+    </div>
+    {% endif %}
+
+    <!-- Result -->
+    {% if result %}
+    <div class="card border-0 shadow-sm" style="border-radius:16px; overflow:hidden;">
+
+        <div class="card-header py-3 text-center"
+             style="background:#1B5E20; color:white;">
+            <h6 class="fw-bold mb-0">✓ Vote Verified</h6>
+        </div>
+
+        <div class="card-body p-4">
+
+            <div class="text-center mb-4">
+                <span class="badge bg-success px-4 py-2 fs-6">
+                    Status: {{ result.status }}
+                </span>
+            </div>
+
+            <table class="table table-borderless mb-0">
+                <tr>
+                    <td class="text-muted small ps-0">Receipt Code</td>
+                    <td class="fw-bold text-end"
+                        style="font-family:monospace; color:#1B5E20;">
+                        {{ code }}
+                    </td>
+                </tr>
+                <tr>
+                    <td class="text-muted small ps-0">Election</td>
+                    <td class="fw-bold text-end">{{ result.election }}</td>
+                </tr>
+                <tr>
+                    <td class="text-muted small ps-0">Position</td>
+                    <td class="fw-bold text-end">{{ result.position }}</td>
+                </tr>
+                <tr>
+                    <td class="text-muted small ps-0">Institution</td>
+                    <td class="fw-bold text-end">{{ result.institution }}</td>
+                </tr>
+                <tr>
+                    <td class="text-muted small ps-0">Time Cast</td>
+                    <td class="fw-bold text-end">{{ result.time_cast }}</td>
+                </tr>
+            </table>
+
+        </div>
+
+        <div class="card-footer bg-light text-center py-3">
+            <small class="text-muted">
+                Your candidate choice is kept private to protect vote secrecy.
+            </small>
+        </div>
+
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}

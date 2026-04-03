@@ -123,6 +123,10 @@ transform:scale(1.05);
                     </a>
                 </li>
                 {% endif %}
+
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'verify_vote' %}">Verify Vote</a>
+                </li>
             </ul>
 
             {% if user.is_authenticated %}
@@ -224,6 +228,10 @@ transform:scale(1.05);
                     </li>
                     <li class="mb-2">
                         <a href="{% url 'core_contact' %}" class="footer-link">Contact</a>
+                    </li>
+
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'verify_vote' %}">Verify Vote</a>
                     </li>
                 </ul>
             </div>
