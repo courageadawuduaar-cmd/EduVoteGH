@@ -1,13 +1,82 @@
 {% extends 'core/base.html' %}
 
-{% block title %}Upload Voters{% endblock %}
+{% block title %}Upload Voters — EduVoteGH{% endblock %}
 
 {% block content %}
-<h2 class="mb-4">Upload Voters via Excel</h2>
+<div class="container py-4" style="max-width: 680px;">
 
-<form method="post" enctype="multipart/form-data">
-    {% csrf_token %}
-    {{ form.as_p }}
-    <button type="submit" class="btn btn-primary">Upload</button>
-</form>
+  <!-- Breadcrumb -->
+  <p class="text-muted small mb-1">Elections / Upload Voters</p>
+  <h2 class="mb-1 fw-semibold">Upload Voters</h2>
+  <p class="text-muted mb-4">Upload a CSV or Excel file to bulk-register voters for a specific election.</p>
+
+  <!-- Messages -->
+  {% if messages %}
+    {% for message in messages %}
+      <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} alert-dismissible fade show" role="alert">
+        {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+      </div>
+    {% endfor %}
+  {% endif %}
+
+  <!-- Column hint -->
+  <div class="bg-light rounded p-3 mb-4 border">
+    <p class="small fw-semibold mb-2 text-muted">Required columns in your file:</p>
+    <div class="d-flex gap-2 flex-wrap">
+      <code class="bg-white border rounded px-2 py-1 small">full_name</code>
+      <code class="bg-white border rounded px-2 py-1 small">username</code>
+      <code class="bg-white border rounded px-2 py-1 small">phone</code>
+    </div>
+  </div>
+
+  <!-- Form Card -->
+  <div class="card border shadow-sm">
+    <div class="card-body p-4">
+      <form method="POST" enctype="multipart/form-data" novalidate>
+        {% csrf_token %}
+
+        <!-- Election Selector -->
+        <div class="mb-4">
+          <label for="{{ form.election.id_for_label }}" class="form-label fw-semibold">
+            Select election
+          </label>
+          {{ form.election }}
+          {% if form.election.errors %}
+            <div class="text-danger small mt-1">{{ form.election.errors }}</div>
+          {% endif %}
+        </div>
+
+        <!-- File Upload -->
+        <div class="mb-4">
+          <label for="{{ form.csv_file.id_for_label }}" class="form-label fw-semibold">
+            Upload file
+          </label>
+          {{ form.csv_file }}
+          <div class="form-text">Accepted formats: .csv, .xlsx</div>
+          {% if form.csv_file.errors %}
+            <div class="text-danger small mt-1">{{ form.csv_file.errors }}</div>
+          {% endif %}
+        </div>
+
+        <!-- Footer -->
+        <div class="d-flex align-items-center justify-content-between pt-3 border-top">
+          <p class="text-muted small mb-0">
+            Passwords are auto-generated and included in the downloaded CSV.
+          </p>
+          <button type="submit" class="btn btn-primary px-4">
+            Upload voters
+          </button>
+        </div>
+
+      </form>
+    </div>
+  </div>
+
+  <!-- Download hint -->
+  <p class="text-muted small text-center mt-3">
+    After uploading, a <strong>voter_credentials.csv</strong> file will download automatically with all login details.
+  </p>
+
+</div>
 {% endblock %}

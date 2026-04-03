@@ -1,66 +1,82 @@
-from django.shortcuts import render, redirect
-from django.contrib.auth import authenticate, login, logout
-from .forms import VoterLoginForm
-from django.contrib import messages
-from .models import Election, Position, Candidate, Voter, Vote
-from django.contrib.auth.decorators import login_required
-from django.db import IntegrityError
-from django.db.models import Count
-from django.db.models import Count, Max
-from .models import Candidate
-from django.db.models import Count, Sum
+# ============================================================
+# Standard Library
+# ============================================================
 import csv
-from io import TextIOWrapper
-from django.contrib.auth.models import User
-from core.models import Voter, Institution, Election
-from django.core.mail import send_mail
+import json
+import os
 import random
 import string
-import pandas as pd
-from .forms import VoterCSVUploadForm
-from django.shortcuts import render, redirect
-from django.shortcuts import render
-from django.http import HttpResponse
-
-from django.shortcuts import render, get_object_or_404
-from core.models import Election, Position, Candidate, Vote
-
-from django.http import JsonResponse
-from .models import Candidate, Position, Election
-from .models import Candidate
-from django.shortcuts import redirect
-from .models import Election
-from django.utils import timezone
-from django.contrib.admin.views.decorators import staff_member_required
-from .models import Voter
-
-from reportlab.lib.pagesizes import A4
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
-from reportlab.lib import colors
-from reportlab.lib.styles import getSampleStyleSheet
-from django.http import HttpResponse
-from django.shortcuts import get_object_or_404
-from datetime import datetime
-from reportlab.platypus import PageBreak
-from reportlab.lib.units import inch
-from django.http import HttpResponseForbidden
-from reportlab.pdfgen import canvas
-from reportlab.graphics.barcode import qr
-from reportlab.graphics.shapes import Drawing
 import uuid
+from datetime import datetime
+from io import TextIOWrapper
 
-import os
-from django.contrib.auth.hashers import make_password
-
-from .models import ContactMessage
-from django.core.mail import send_mail
+# ============================================================
+# Django Core
+# ============================================================
 from django.conf import settings
-from reportlab.platypus import Image
-from reportlab.graphics.shapes import Circle
+from django.contrib import messages
+from django.contrib.admin.views.decorators import staff_member_required
+from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth.hashers import make_password
+from django.contrib.auth.models import User
+from django.core.mail import send_mail
+from django.db import IntegrityError, transaction
+from django.db.models import Count
+from django.http import (
+    HttpResponse,
+    HttpResponseForbidden,
+    JsonResponse,
+)
+from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
 
-from reportlab.graphics.shapes import Circle, String
+# ============================================================
+# Third Party
+# ============================================================
+import pandas as pd
 
+from reportlab.graphics.barcode import qr
+from reportlab.graphics.shapes import Circle, Drawing, String
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import inch
+from reportlab.pdfgen import canvas
+from reportlab.platypus import (
+    Image,
+    PageBreak,
+    Paragraph,
+    SimpleDocTemplate,
+    Spacer,
+    Table,
+    TableStyle,
+)
+
+# ============================================================
+# Local Models & Forms
+# ============================================================
+from .forms import VoterLoginForm, VoterCSVUploadForm
+from .models import (
+    ActivityLog,
+    AdminAuditLog,
+    Candidate,
+    ContactMessage,
+    Election,
+    Institution,
+    Position,
+    Vote,
+    Voter,
+)
+
+
+# ------------------------
+# Voter Authentication
+# ------------------------
 def voter_login(request):
+    if request.user.is_authenticated:
+        return redirect('vote_dashboard')
+
     if request.method == "POST":
         form = VoterLoginForm(request, data=request.POST)
         if form.is_valid():
@@ -71,118 +87,211 @@ def voter_login(request):
             messages.error(request, "Invalid username or password")
     else:
         form = VoterLoginForm()
+    
     return render(request, 'core/login.html', {'form': form})
+
 
 def voter_logout(request):
     logout(request)
     return redirect('voter_login')
 
 
-from django.contrib.auth.decorators import login_required
-
-from django.utils import timezone
-
+# ------------------------
+# Dashboard
+# ------------------------
 @login_required
 def vote_dashboard(request):
-    user = request.user
     try:
-        voter = Voter.objects.get(user=user)
+        voter = Voter.objects.select_related('institution').get(user=request.user)
     except Voter.DoesNotExist:
         messages.error(request, "You are not registered as a voter.")
         return redirect('voter_login')
 
     now = timezone.now()
 
-    # Get truly active elections (based on time)
-    elections = voter.elections.filter(
+    active_elections = voter.elections.filter(
+        is_active=True,
         start_time__lte=now,
         end_time__gte=now
+    ).annotate(
+        candidate_count=Count('candidate', distinct=True)  # ✅ distinct=True added
+    ).filter(
+        candidate_count__gt=0
     )
 
     context = {
         'voter': voter,
-        'elections': elections
+        'elections': active_elections
     }
 
     return render(request, 'core/dashboard.html', context)
 
 
+# ------------------------
+# Vote Page
+# ------------------------
+
 @login_required
 def vote_page(request, election_id):
-    user = request.user
 
-    # Check voter
     try:
-        voter = Voter.objects.get(user=user)
+        voter = Voter.objects.get(user=request.user)
     except Voter.DoesNotExist:
         messages.error(request, "You are not registered as a voter.")
         return redirect('voter_login')
 
-    election = get_object_or_404(Election, id=election_id)
-    now = timezone.now()
+    election = get_object_or_404(
+        Election,
+        id=election_id,
+        voters=voter
+    )
 
-    # 🚫 Block before start
-    if now < election.start_time:
-        messages.warning(request, "This election has not started yet.")
-        return redirect('home')
+    # Election status checks
+    if not election.is_live:
+        if timezone.now() < election.start_time:
+            messages.warning(request, "This election has not started yet.")
+            return redirect('vote_dashboard')
 
-    # 🚫 Block after end
-    if now > election.end_time:
-        messages.info(request, "This election has ended.")
-        return redirect('election_results', election_id=election.id)
+        if timezone.now() > election.end_time:
+            messages.info(request, "This election has ended.")
+            return redirect('election_results', election_id=election.id)
+
+        if not election.is_active:
+            messages.warning(request, "This election has been disabled by the administrator.")
+            return redirect('vote_dashboard')
 
     positions = Position.objects.filter(
         election=election
-    ).prefetch_related('candidate_set')
+    ).prefetch_related('candidate_set__user')
 
-    voted_positions = Vote.objects.filter(
-        voter=voter,
-        election=election
-    ).values_list('position_id', flat=True)
+    # ✅ Check if election has any positions or candidates at all
+    if not positions.exists():
+        messages.warning(request, "This election has no positions set up yet.")
+        return redirect('vote_dashboard')
 
+    has_candidates = any(
+        position.candidate_set.exists() for position in positions
+    )
+    if not has_candidates:
+        messages.warning(request, "This election has no candidates yet.")
+        return redirect('vote_dashboard')
+
+    voted_positions = set(
+        Vote.objects.filter(voter=voter, election=election)
+        .values_list('position_id', flat=True)
+    )
+
+    # Check if voter has already voted in ALL positions
+    all_position_ids = set(positions.values_list('id', flat=True))
+    already_voted_all = all_position_ids == voted_positions
+
+    if already_voted_all:
+        messages.info(request, "You have already completed voting in this election.")
+        return redirect('vote_dashboard')
+
+    # --------------------------------
+    # HANDLE POST
+    # --------------------------------
     if request.method == "POST":
 
-        votes_created = 0
-        already_voted_all = True
+        # AJAX SINGLE VOTE
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            try:
+                data = json.loads(request.body)
+            except json.JSONDecodeError:
+                return JsonResponse({
+                    "success": False,
+                    "message": "Invalid request format."
+                })
 
-        for position in positions:
+            position_id  = data.get('position_id')
+            candidate_id = data.get('candidate_id')
 
-            candidate_id = request.POST.get(f'position_{position.id}')
+            if not position_id or not candidate_id:
+                return JsonResponse({
+                    "success": False,
+                    "message": "Invalid data."
+                })
 
-            # If voter already voted for this position
-            if position.id in voted_positions:
-                continue
+            if int(position_id) in voted_positions:
+                return JsonResponse({
+                    "success": False,
+                    "message": "You have already voted for this position."
+                })
 
-            already_voted_all = False
+            candidate = get_object_or_404(
+                Candidate,
+                id=candidate_id,
+                position_id=position_id
+            )
 
-            if candidate_id:
-                candidate = Candidate.objects.get(id=candidate_id)
-
-                try:
+            try:
+                with transaction.atomic():
                     Vote.objects.create(
                         voter=voter,
                         candidate=candidate,
-                        position=position,
-                        election=election
+                        position=candidate.position,
+                        election=election,
+                        ip_address=request.META.get('REMOTE_ADDR'),
+                        user_agent=request.META.get('HTTP_USER_AGENT')
                     )
-                    votes_created += 1
-                except IntegrityError:
+                return JsonResponse({
+                    "success": True,
+                    "message": "Vote recorded successfully.",
+                    "position_id": position_id
+                })
+            except IntegrityError:
+                return JsonResponse({
+                    "success": False,
+                    "message": "Vote could not be recorded. Please try again."
+                })
+
+        # NORMAL FORM SUBMIT
+        votes_created = 0
+        candidate_map = {
+            str(c.id): c
+            for c in Candidate.objects.filter(position__in=positions)
+        }
+
+        with transaction.atomic():
+            for position in positions:
+                if position.id in voted_positions:
                     continue
+
+                candidate_id = request.POST.get(f'position_{position.id}')
+                candidate    = candidate_map.get(candidate_id)
+
+                if candidate:
+                    try:
+                        Vote.objects.create(
+                            voter=voter,
+                            candidate=candidate,
+                            position=position,
+                            election=election,
+                            ip_address=request.META.get('REMOTE_ADDR'),
+                            user_agent=request.META.get('HTTP_USER_AGENT')
+                        )
+                        votes_created += 1
+                    except IntegrityError:
+                        continue
 
         if votes_created > 0:
             messages.success(request, "Your votes have been submitted successfully!")
-        elif already_voted_all:
-            messages.warning(request, "You have already voted in this election.")
         else:
-            messages.warning(request, "No valid votes were submitted.")
+            messages.warning(request, "No valid votes were submitted. Please select a candidate for each position.")
 
         return redirect('vote_dashboard')
 
+    # --------------------------------
+    # PAGE LOAD
+    # --------------------------------
     context = {
         'voter': voter,
         'election': election,
         'positions': positions,
         'voted_positions': voted_positions,
+        'total_positions': all_position_ids.__len__(),
+        'votes_remaining': len(all_position_ids - voted_positions),
     }
 
     return render(request, 'core/vote_page.html', context)
@@ -190,63 +299,71 @@ def vote_page(request, election_id):
 @login_required
 def election_results(request, election_id):
 
-    # 🔒 Restrict to superusers only
-    if not request.user.is_superuser:
-        return HttpResponseForbidden("Access Denied")
+    # 🔒 Allow superusers and staff (auditors) only
+    if not request.user.is_staff and not request.user.is_superuser:
+        messages.error(request, "You do not have permission to view results.")
+        return redirect('vote_dashboard')
 
     now = timezone.now()
     election = get_object_or_404(Election, id=election_id)
 
+    # Auditors can only view results of closed or ended elections
+    # Superusers/admins can view results at any time
+    if not request.user.is_superuser:
+        if not election.is_closed and not election.is_active:
+            messages.warning(request, "Results are not available for this election yet.")
+            return redirect('vote_dashboard')
+
+    positions = Position.objects.filter(
+        election=election
+    ).prefetch_related('candidate_set__user')
+
+    # Total registered voters for this election
+    total_registered_voters = election.voters.count()
+
+    # Total votes cast across all positions in this election
+    total_votes_cast = Vote.objects.filter(election=election).count()
+
+    # Turnout percentage
+    turnout_percentage = (
+        round((total_votes_cast / total_registered_voters) * 100, 1)
+        if total_registered_voters > 0 else 0
+    )
+
     results = []
-
-    positions = Position.objects.filter(election=election)
-
-    # ✅ TOTAL VOTES CAST IN ELECTION
-    total_votes_cast = Vote.objects.filter(position__election=election).count()
 
     for position in positions:
 
-        candidates = Candidate.objects.filter(position=position)
+        # Single query per position using annotation
+        candidates = Candidate.objects.filter(
+            position=position
+        ).annotate(
+            votes_count=Count('vote', distinct=True)
+        ).order_by('-votes_count')
 
-        # ✅ TOTAL VOTES FOR THIS POSITION
-        position_total_votes = Vote.objects.filter(position=position).count()
+        position_total_votes = sum(c.votes_count for c in candidates)
 
         candidate_list = []
-
         for candidate in candidates:
-
-            votes_count = Vote.objects.filter(candidate=candidate).count()
-
-            # attach vote count
-            candidate.votes_count = votes_count
-
-            # ✅ calculate percentage correctly
-            if position_total_votes > 0:
-                candidate.percentage = round((votes_count / position_total_votes) * 100, 1)
-            else:
-                candidate.percentage = 0
-
+            candidate.percentage = (
+                round((candidate.votes_count / position_total_votes) * 100, 1)
+                if position_total_votes > 0 else 0
+            )
             candidate_list.append(candidate)
 
+        # Determine winner or tie
         winner = None
         is_tie = False
 
         if candidate_list:
+            max_votes = candidate_list[0].votes_count  # already sorted desc
 
-            max_votes = max(c.votes_count for c in candidate_list)
-
-            if max_votes == 0:
-                winner = None
-
-            else:
-
+            if max_votes > 0:
                 top_candidates = [
                     c for c in candidate_list if c.votes_count == max_votes
                 ]
-
                 if len(top_candidates) == 1:
                     winner = top_candidates[0]
-
                 else:
                     is_tie = True
                     winner = top_candidates
@@ -262,12 +379,31 @@ def election_results(request, election_id):
     context = {
         'election': election,
         'results': results,
-        'total_votes_cast': total_votes_cast,  # ✅ NEW
-        'now': now
+        'total_registered_voters': total_registered_voters,
+        'total_votes_cast': total_votes_cast,
+        'turnout_percentage': turnout_percentage,
+        'now': now,
+        'is_auditor': request.user.is_staff and not request.user.is_superuser,
     }
 
     return render(request, 'core/results.html', context)
 
+# ------------------------
+# def upload_voters
+# ------------------------
+import pandas as pd
+import random
+import string
+import csv
+
+from django.contrib.auth.hashers import make_password
+from django.contrib.auth.decorators import login_required
+from django.http import HttpResponse
+from django.contrib import messages
+from django.shortcuts import render
+from .forms import VoterCSVUploadForm
+from .models import Institution, Election, Voter
+from django.contrib.auth.models import User
 
 @login_required
 def upload_voters(request):
@@ -276,50 +412,51 @@ def upload_voters(request):
 
         if form.is_valid():
             file = request.FILES['csv_file']
+            election = form.cleaned_data['election']         # ✅ from form
+            institution = election.institution               # ✅ derived from election
 
+            # 📂 Read file
             try:
-                df = pd.read_excel(file, engine="openpyxl")
+                if file.name.endswith('.xlsx'):
+                    df = pd.read_excel(file, engine="openpyxl")
+                elif file.name.endswith('.csv'):
+                    df = pd.read_csv(file)
+                else:
+                    raise ValueError("Invalid file format")
             except Exception:
-                messages.error(request, "Invalid Excel file. Upload a valid .xlsx file.")
+                messages.error(request, "Invalid file. Upload a valid .xlsx or .csv file.")
                 return render(request, 'core/upload_voters.html', {'form': form})
 
+            # Required columns
             required_columns = ['full_name', 'phone', 'username']
-
             for col in required_columns:
                 if col not in df.columns:
                     messages.error(request, f"Missing column: {col}")
                     return render(request, 'core/upload_voters.html', {'form': form})
 
-            institution = Institution.objects.first()
-            election = Election.objects.first()
-
             users_to_create = []
-            voters_to_create = []
             credentials = []
+            skipped = []
 
-            # Get existing usernames (duplicate protection)
-            existing_usernames = set(
-                User.objects.values_list('username', flat=True)
-            )
+            existing_usernames = set(User.objects.values_list('username', flat=True))
 
             for _, row in df.iterrows():
-
                 full_name = str(row['full_name']).strip()
-                phone = str(row['phone']).strip()
-                username = str(row['username']).strip()
+                phone     = str(row['phone']).strip()
+                username  = str(row['username']).strip()
 
                 if not username or username in existing_usernames:
+                    skipped.append(username)
                     continue
 
-                password = ''.join(random.choices(string.digits, k=8))
-
+                password = 'EV' + ''.join(random.choices(string.digits, k=6))
                 user = User(
                     username=username,
                     first_name=full_name,
                     password=make_password(password)
                 )
-
                 users_to_create.append(user)
+                existing_usernames.add(username)
 
                 credentials.append({
                     "full_name": full_name,
@@ -328,52 +465,61 @@ def upload_voters(request):
                     "password": password
                 })
 
-                existing_usernames.add(username)
-
             # Bulk create users
             User.objects.bulk_create(users_to_create)
 
             # Fetch created users
-            users = User.objects.filter(
-                username__in=[c["username"] for c in credentials]
-            )
+            created_usernames = [c['username'] for c in credentials]
+            user_map = {
+                u.username: u
+                for u in User.objects.filter(username__in=created_usernames)
+            }
 
-            user_map = {user.username: user for user in users}
-
+            # Build voter objects
+            voters_to_create = []
             for cred in credentials:
-                voter = Voter(
+                voters_to_create.append(Voter(
                     user=user_map[cred["username"]],
-                    institution=institution,
+                    institution=institution,        # ✅ from election
                     phone=cred["phone"]
-                )
-                voters_to_create.append(voter)
+                ))
 
-            # Bulk create voters
             Voter.objects.bulk_create(voters_to_create)
 
-            # Assign election
-            voters = Voter.objects.filter(
-                user__username__in=[c["username"] for c in credentials]
-            )
-
-            for voter in voters:
+            # Assign voters to the selected election ✅
+            new_voters = Voter.objects.filter(user__username__in=created_usernames)
+            for voter in new_voters:
                 voter.elections.add(election)
 
-            # Generate CSV download
+            # Generate credentials CSV
             response = HttpResponse(content_type='text/csv')
-            response['Content-Disposition'] = 'attachment; filename="voter_credentials.csv"'
+            response['Content-Disposition'] = (
+                f'attachment; filename="{election.title}_voter_credentials.csv"'
+            )
 
             writer = csv.writer(response)
-            writer.writerow(['full_name', 'username', 'phone', 'password'])
+            writer.writerow(['full_name', 'username', 'phone', 'password', 'election'])
 
             for cred in credentials:
                 writer.writerow([
                     cred['full_name'],
                     cred['username'],
                     cred['phone'],
-                    cred['password']
+                    cred['password'],
+                    election.title          # ✅ election name in CSV
                 ])
 
+            if skipped:
+                writer.writerow([])
+                writer.writerow(['Skipped (already exist or invalid)'])
+                for s in skipped:
+                    writer.writerow([s])
+
+            messages.success(
+                request,
+                f"Successfully uploaded {len(credentials)} voters to '{election.title}'. "
+                f"Skipped {len(skipped)}."
+            )
             return response
 
     else:
@@ -381,126 +527,175 @@ def upload_voters(request):
 
     return render(request, 'core/upload_voters.html', {'form': form})
 
-
 # ================================
 # ENTERPRISE ADMIN CONTROL PANEL
 # ================================
 
+from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib import messages
+from django.utils import timezone
+from django.db import transaction
+from django.contrib.admin.views.decorators import staff_member_required
+
+from .models import Election, Voter, Vote, AdminAuditLog
+
+# ------------------------
+# ADMIN PANEL
+# ------------------------
 @staff_member_required
 def admin_panel(request):
+    now = timezone.now()
 
-    # 🔒 Auto-close elections whose time has passed
-    expired_elections = Election.objects.filter(
-        is_active=True,
-        end_time__lt=timezone.now()
-    )
+    # Auto-close expired elections
+    Election.objects.filter(is_active=True, end_time__lt=now).update(is_active=False)
 
-    for expired in expired_elections:
-        expired.is_active = False
-        expired.save()
-
-    elections = Election.objects.all().order_by('-created_at')
-    active_election = Election.objects.filter(is_active=True).first()
-    total_voters = Voter.objects.count()
-
+    # Handle POST actions
     if request.method == "POST":
         election_id = request.POST.get("election_id")
         action = request.POST.get("action")
 
-        election = Election.objects.get(id=election_id)
+        election = get_object_or_404(Election, id=election_id)
 
-        if action == "activate":
+        with transaction.atomic():
+            if action == "activate":
+                election.is_active = True
+                election.save()
 
-            # 🔒 Only ONE active election allowed
-            Election.objects.update(is_active=False)
+                AdminAuditLog.objects.create(
+                    admin=request.user,
+                    action=f"Activated election: {election.title}",
+                    election=election
+                )
+                messages.success(request, f"'{election.title}' is now ACTIVE.")
 
-            election.is_active = True
-            election.save()
+            elif action == "deactivate":
+                election.is_active = False
+                election.save()
 
-            # 📁 Audit Log
-            from .models import AdminAuditLog
-            AdminAuditLog.objects.create(
-                admin=request.user,
-                action=f"Activated election: {election.title}",
-                election=election
-            )
-
-            messages.success(request, f"{election.title} is now ACTIVE.")
-
-        elif action == "deactivate":
-
-            election.is_active = False
-            election.save()
-
-            # 📁 Audit Log
-            from .models import AdminAuditLog
-            AdminAuditLog.objects.create(
-                admin=request.user,
-                action=f"Deactivated election: {election.title}",
-                election=election
-            )
-
-            messages.warning(request, f"{election.title} has been deactivated.")
+                AdminAuditLog.objects.create(
+                    admin=request.user,
+                    action=f"Deactivated election: {election.title}",
+                    election=election
+                )
+                messages.warning(request, f"'{election.title}' has been deactivated.")
 
         return redirect("admin_panel")
 
+    # Fetch all elections ordered by newest first
+    elections = Election.objects.all().order_by('-created_at')
+
+    # ✅ All currently active elections (not just one)
+    active_elections = Election.objects.filter(is_active=True)
+
+    # Build stats per election
+    election_stats = []
+    for election in elections:
+        voters = election.voters.count()
+        votes = Vote.objects.filter(election=election).count()
+        remaining = voters - votes
+        turnout = round((votes / voters) * 100, 2) if voters > 0 else 0
+
+        election_stats.append({
+            "election": election,
+            "voters": voters,
+            "votes": votes,
+            "remaining": remaining,
+            "turnout": turnout
+        })
+
+    # Recent audit logs
+    logs = AdminAuditLog.objects.select_related('admin').order_by('-timestamp')[:5]
+
     return render(request, "core/admin_panel.html", {
         "elections": elections,
-        "active_election": active_election,
-        "total_voters": total_voters,
-    })
-
-# ================================
-# ADMIN AUDIT LOGS
-# ================================
-
-@staff_member_required
-def admin_logs(request):
-
-    from .models import AdminAuditLog
-
-    logs = AdminAuditLog.objects.select_related(
-        'admin',
-        'election'
-    ).order_by('-timestamp')
-
-    return render(request, "core/admin_logs.html", {
+        "active_elections": active_elections,      # ✅ queryset, not .first()
+        "active_elections_count": active_elections.count(),  # ✅ handy for the template
+        "election_stats": election_stats,
         "logs": logs
     })
 
-# ================================
-# DASHBOARD ANALYTICS
-# ================================
+# ------------------------
+# ADMIN AUDIT LOGS
+# ------------------------
+@staff_member_required
+def admin_logs(request):
+    from django.core.paginator import Paginator
 
+    logs = AdminAuditLog.objects.select_related(
+        'admin', 'election'
+    ).order_by('-timestamp')
+
+    paginator = Paginator(logs, 50)
+    page = request.GET.get('page')
+    logs = paginator.get_page(page)
+
+    return render(request, "core/admin_logs.html", {"logs": logs})
+
+
+# ------------------------
+# DASHBOARD ANALYTICS
+# ------------------------
 @staff_member_required
 def admin_analytics(request):
+    elections = Election.objects.all().order_by('-created_at')
+    now = timezone.now()
 
-    from django.db.models import Count
-    from django.utils import timezone
+    # ✅ All active elections, not just the first one
+    active_elections = Election.objects.filter(is_active=True)
+    active_elections_count = active_elections.count()
 
-    elections = Election.objects.all()
     total_elections = elections.count()
-    active_election = Election.objects.filter(is_active=True).first()
     total_voters = Voter.objects.count()
     total_votes = Vote.objects.count()
 
-    turnout_data = []
+    # Overall turnout percentage across all elections
+    overall_turnout = round((total_votes / total_voters) * 100, 2) if total_voters > 0 else 0
 
+    # Per-election stats
+    election_stats = []
     for election in elections:
-        turnout_data.append({
+        voters = election.voters.count()
+        votes = Vote.objects.filter(election=election).count()
+        turnout = round((votes / voters) * 100, 2) if voters > 0 else 0
+
+        election_stats.append({
             "title": election.title,
-            "turnout": election.turnout_percentage(),
+            "institution": election.institution.name,
+            "voters": voters,
+            "votes": votes,
+            "turnout": turnout,
+            "is_active": election.is_active,
+            "is_closed": election.is_closed,
+            "start_time": election.start_time,
+            "end_time": election.end_time,
         })
+
+    # Turnout data for chart — title + turnout percentage per election
+    turnout_chart_data = {
+        "labels": [s["title"] for s in election_stats],
+        "values": [s["turnout"] for s in election_stats],
+    }
+
+    # Votes per election for bar chart
+    votes_chart_data = {
+        "labels": [s["title"] for s in election_stats],
+        "values": [s["votes"] for s in election_stats],
+    }
 
     context = {
         "total_elections": total_elections,
-        "active_election": active_election,
+        "active_elections": active_elections,           # ✅ queryset not .first()
+        "active_elections_count": active_elections_count,
         "total_voters": total_voters,
         "total_votes": total_votes,
-        "turnout_data": turnout_data,
+        "overall_turnout": overall_turnout,
+        "election_stats": election_stats,
+        "turnout_chart_data": turnout_chart_data,       # ✅ ready for Chart.js
+        "votes_chart_data": votes_chart_data,           # ✅ ready for Chart.js
     }
 
     return render(request, "core/admin_analytics.html", context)
+
 
 def add_watermark(canvas_obj, doc):
     canvas_obj.saveState()
@@ -518,33 +713,27 @@ def export_results_pdf(request, election_id):
     election = get_object_or_404(Election, id=election_id)
     positions = Position.objects.filter(election=election)
 
-    # -------------------------------------------------
-    # CALCULATIONS
-    # -------------------------------------------------
-    total_registered_voters = Voter.objects.filter(
-        elections=election
-    ).count()
-
-    total_votes_cast = Vote.objects.filter(
-        election=election
-    ).count()
-
+    # Calculations
+    total_registered_voters = Voter.objects.filter(elections=election).count()
+    total_votes_cast = Vote.objects.filter(election=election).count()
     turnout_percentage = (
         round((total_votes_cast / total_registered_voters) * 100, 2)
         if total_registered_voters > 0 else 0
     )
-
     verification_id = str(uuid.uuid4()).split("-")[0].upper()
+    generated_on = datetime.now().strftime('%B %d, %Y at %H:%M')
 
-    verification_data = f"""
-Election: {election.title}
-Reference: {verification_id}
-Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}
-"""
+    # Colors
+    DARK_GREEN  = colors.HexColor('#1B5E20')
+    GOLD        = colors.HexColor('#C9A84C')
+    LIGHT_GREEN = colors.HexColor('#E8F5E9')
+    LIGHT_GOLD  = colors.HexColor('#FDF6E3')
+    DARK_GREY   = colors.HexColor('#2c2c2c')
+    MID_GREY    = colors.HexColor('#888888')
+    LIGHT_GREY  = colors.HexColor('#f5f5f5')
+    WHITE       = colors.white
 
-    # -------------------------------------------------
-    # PDF RESPONSE
-    # -------------------------------------------------
+    # PDF response
     response = HttpResponse(content_type='application/pdf')
     response['Content-Disposition'] = (
         f'attachment; filename="{election.title}_Official_Results.pdf"'
@@ -553,277 +742,407 @@ Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}
     doc = SimpleDocTemplate(
         response,
         pagesize=A4,
-        rightMargin=40,
-        leftMargin=40,
-        topMargin=60,
-        bottomMargin=60,
+        rightMargin=50,
+        leftMargin=50,
+        topMargin=70,
+        bottomMargin=70,
     )
 
     elements = []
     styles = getSampleStyleSheet()
 
-    # Custom centered style
-    from reportlab.lib.styles import ParagraphStyle
-    centered = ParagraphStyle(
-        name="Centered",
-        parent=styles["Normal"],
+    # Custom styles
+    title_style = ParagraphStyle(
+        'CustomTitle',
+        parent=styles['Normal'],
+        fontSize=20,
+        fontName='Helvetica-Bold',
+        textColor=DARK_GREEN,
         alignment=1,
-        fontSize=12,
+        spaceAfter=4,
+    )
+    subtitle_style = ParagraphStyle(
+        'Subtitle',
+        parent=styles['Normal'],
+        fontSize=11,
+        fontName='Helvetica',
+        textColor=MID_GREY,
+        alignment=1,
+        spaceAfter=4,
+    )
+    cert_title_style = ParagraphStyle(
+        'CertTitle',
+        parent=styles['Normal'],
+        fontSize=13,
+        fontName='Helvetica-Bold',
+        textColor=DARK_GREEN,
+        alignment=1,
         spaceAfter=6,
     )
+    section_style = ParagraphStyle(
+        'Section',
+        parent=styles['Normal'],
+        fontSize=12,
+        fontName='Helvetica-Bold',
+        textColor=WHITE,
+        alignment=0,
+        spaceAfter=0,
+        leftIndent=8,
+    )
+    normal_center = ParagraphStyle(
+        'NormalCenter',
+        parent=styles['Normal'],
+        fontSize=10,
+        alignment=1,
+        spaceAfter=4,
+    )
+    body_style = ParagraphStyle(
+        'Body',
+        parent=styles['Normal'],
+        fontSize=10,
+        leading=16,
+        alignment=1,
+        textColor=DARK_GREY,
+    )
 
-    ##logo_path = os.path.join(settings.BASE_DIR, "static", "images", "institution_logo.png")
+    # ─────────────────────────────────────────
+    # LOGO
+    # ─────────────────────────────────────────
+    logo_path = None
+    if election.institution.logo:
+        logo_path = election.institution.logo.path
+    else:
+        fallback = os.path.join(
+            settings.BASE_DIR, "static", "images", "logo.svg"
+        )
+        if os.path.exists(fallback):
+            logo_path = fallback
 
-    try:
-        logo = Image(logo_path, width=80, height=80)
-        logo.hAlign = "CENTER"
-        elements.append(logo)
-        elements.append(Spacer(1,10))
-    except:
-        pass
+    if logo_path:
+        try:
+            logo = Image(logo_path, width=90, height=90)
+            logo.hAlign = "CENTER"
+            elements.append(logo)
+            elements.append(Spacer(1, 8))
+        except Exception:
+            pass
 
-
-    # -------------------------------------------------
+    # ─────────────────────────────────────────
     # HEADER
-    # -------------------------------------------------
-
+    # ─────────────────────────────────────────
     elements.append(Paragraph(
-        f"<b>{election.institution.name.upper()}</b>",
-        styles["Title"]
+        election.institution.name.upper(), title_style
+    ))
+    elements.append(Paragraph("EduVoteGH Electoral Commission", subtitle_style))
+    elements.append(Spacer(1, 6))
+    elements.append(Paragraph(
+        "OFFICIAL CERTIFICATE OF DECLARATION OF RESULTS",
+        cert_title_style
     ))
 
-    elements.append(Spacer(1,6))
+    # Gold divider line
+    elements.append(Spacer(1, 8))
+    divider = Table([['']], colWidths=[6.3*inch])
+    divider.setStyle(TableStyle([
+        ('LINEBELOW', (0, 0), (-1, -1), 2, GOLD),
+        ('LINEABOVE', (0, 0), (-1, -1), 0.5, DARK_GREEN),
+    ]))
+    elements.append(divider)
+    elements.append(Spacer(1, 16))
 
-    elements.append(Paragraph(
-        "<b>EduVoteGH</b>",
-        centered
-    ))
-
-    elements.append(Spacer(1,6))
-
-    elements.append(Paragraph(
-        "<b>OFFICIAL CERTIFICATE OF DECLARATION OF RESULTS</b>",
-        centered
-    ))
-
-    elements.append(Spacer(1,20))
-
+    # Election info
+    info_data = [
+        [Paragraph('<b>Election:</b>', styles['Normal']),
+         Paragraph(election.title, styles['Normal'])],
+        [Paragraph('<b>Institution:</b>', styles['Normal']),
+         Paragraph(election.institution.name, styles['Normal'])],
+        [Paragraph('<b>Period:</b>', styles['Normal']),
+         Paragraph(
+             f"{election.start_time.strftime('%b %d, %Y %H:%M')} — "
+             f"{election.end_time.strftime('%b %d, %Y %H:%M')}",
+             styles['Normal']
+         )],
+        [Paragraph('<b>Date of Issue:</b>', styles['Normal']),
+         Paragraph(generated_on, styles['Normal'])],
+        [Paragraph('<b>Reference No:</b>', styles['Normal']),
+         Paragraph(f"EVGH-{verification_id}", styles['Normal'])],
+    ]
+    info_table = Table(info_data, colWidths=[1.8*inch, 4.5*inch])
+    info_table.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+        ('TOPPADDING', (0, 0), (-1, -1), 2),
+    ]))
+    elements.append(info_table)
     elements.append(Spacer(1, 20))
 
-    elements.append(Paragraph(
-        f"<b>Election:</b> {election.title}",
-        styles["Normal"]
-    ))
-
-    elements.append(Paragraph(
-        f"<b>Date of Issue:</b> {datetime.now().strftime('%B %d, %Y %H:%M')}",
-        styles["Normal"]
-    ))
-
-    elements.append(Spacer(1, 25))
-
-    # -------------------------------------------------
-    # SUMMARY SECTION (BOXED)
-    # -------------------------------------------------
-    summary_data = [
-        ["TOTAL REGISTERED VOTERS", total_registered_voters],
-        ["TOTAL VALID VOTES CAST", total_votes_cast],
-        ["VOTER TURNOUT", f"{turnout_percentage}%"],
-    ]
-
-    summary_table = Table(summary_data, colWidths=[3.5*inch, 2*inch])
-    summary_table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, -1), colors.lightgrey),
-        ('BOX', (0, 0), (-1, -1), 1, colors.black),
-        ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.grey),
-        ('ALIGN', (1, 0), (-1, -1), 'CENTER'),
-        ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
+    # ─────────────────────────────────────────
+    # SUMMARY BOX
+    # ─────────────────────────────────────────
+    summary_header = Table(
+        [[Paragraph('ELECTION SUMMARY', section_style)]],
+        colWidths=[6.3*inch]
+    )
+    summary_header.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), DARK_GREEN),
+        ('TOPPADDING', (0, 0), (-1, -1), 8),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
     ]))
+    elements.append(summary_header)
 
-    elements.append(Paragraph("<b>OFFICIAL SUMMARY</b>", styles["Heading2"]))
-    elements.append(Spacer(1, 10))
+    summary_data = [
+        ['TOTAL REGISTERED VOTERS', str(total_registered_voters)],
+        ['TOTAL VALID VOTES CAST',  str(total_votes_cast)],
+        ['VOTER TURNOUT',           f"{turnout_percentage}%"],
+    ]
+    summary_table = Table(summary_data, colWidths=[4.5*inch, 1.8*inch])
+    summary_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), LIGHT_GREEN),
+        ('ROWBACKGROUNDS', (0, 0), (-1, -1), [WHITE, LIGHT_GREEN]),
+        ('BOX', (0, 0), (-1, -1), 0.5, DARK_GREEN),
+        ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#cccccc')),
+        ('ALIGN', (1, 0), (-1, -1), 'CENTER'),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+        ('FONTNAME', (1, 0), (-1, -1), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, -1), 10),
+        ('TOPPADDING', (0, 0), (-1, -1), 9),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 9),
+        ('LEFTPADDING', (0, 0), (0, -1), 12),
+        ('TEXTCOLOR', (1, 2), (1, 2), DARK_GREEN),
+    ]))
     elements.append(summary_table)
     elements.append(Spacer(1, 30))
 
-    # -------------------------------------------------
-    # RESULTS SECTION
-    # -------------------------------------------------
+    # ─────────────────────────────────────────
+    # RESULTS PER POSITION
+    # ─────────────────────────────────────────
     for position in positions:
 
-        elements.append(Paragraph(
-            f"<b>POSITION: {position.name.upper()}</b>",
-            styles["Heading3"]
-        ))
-        elements.append(Spacer(1, 10))
+        # Position header
+        pos_header = Table(
+            [[Paragraph(f'POSITION: {position.name.upper()}', section_style)]],
+            colWidths=[6.3*inch]
+        )
+        pos_header.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, -1), DARK_GREEN),
+            ('TOPPADDING', (0, 0), (-1, -1), 8),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+            ('LINEBELOW', (0, 0), (-1, -1), 2, GOLD),
+        ]))
+        elements.append(pos_header)
 
         candidates = Candidate.objects.filter(
             position=position
         ).annotate(
-            total_votes=Count('vote')
+            total_votes=Count('vote', distinct=True)
         ).order_by('-total_votes')
 
         if not candidates.exists():
             elements.append(Paragraph(
-                "No candidates available.",
-                styles["Normal"]
+                "No candidates registered for this position.",
+                styles['Normal']
             ))
             elements.append(Spacer(1, 20))
             continue
 
-        total_votes = sum(c.total_votes for c in candidates)
+        total_pos_votes = sum(c.total_votes for c in candidates)
 
-        table_data = [["Candidate", "Votes", "Percentage"]]
+        # Table header row
+        table_data = [[
+            Paragraph('<b>Candidate</b>', styles['Normal']),
+            Paragraph('<b>Votes</b>', styles['Normal']),
+            Paragraph('<b>Percentage</b>', styles['Normal']),
+            Paragraph('<b>Status</b>', styles['Normal']),
+        ]]
 
         for index, candidate in enumerate(candidates):
             percentage = (
-                round((candidate.total_votes / total_votes) * 100, 2)
-                if total_votes > 0 else 0
+                round((candidate.total_votes / total_pos_votes) * 100, 2)
+                if total_pos_votes > 0 else 0
+            )
+            name = candidate.user.get_full_name() or candidate.user.username
+            is_winner = (index == 0 and candidate.total_votes > 0)
+
+            status = Paragraph(
+                '<b><font color="#1B5E20">WINNER ✓</font></b>',
+                styles['Normal']
+            ) if is_winner else Paragraph('—', styles['Normal'])
+
+            name_para = Paragraph(
+                f'<b>{name}</b>' if is_winner else name,
+                styles['Normal']
             )
 
-            name = candidate.user.get_full_name() or candidate.user.username
-
-            if index == 0 and candidate.total_votes > 0:
-                name = f"{name} (DECLARED WINNER)"
-
             table_data.append([
-                name,
-                candidate.total_votes,
-                f"{percentage}%"
+                name_para,
+                str(candidate.total_votes),
+                f"{percentage}%",
+                status,
             ])
 
-        results_table = Table(table_data, colWidths=[3*inch, 1.2*inch, 1.2*inch])
+        results_table = Table(
+            table_data,
+            colWidths=[3.0*inch, 1.0*inch, 1.2*inch, 1.1*inch]
+        )
 
-        results_table.setStyle(TableStyle([
+        # Build row styles
+        table_style = [
+            # Header row
+            ('BACKGROUND', (0, 0), (-1, 0), DARK_GREY),
+            ('TEXTCOLOR', (0, 0), (-1, 0), WHITE),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 10),
+            ('TOPPADDING', (0, 0), (-1, 0), 10),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 10),
+            # Grid
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#dddddd')),
+            ('BOX', (0, 0), (-1, -1), 0.5, DARK_GREEN),
+            # Alignment
+            ('ALIGN', (1, 0), (-1, -1), 'CENTER'),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('LEFTPADDING', (0, 1), (0, -1), 10),
+            ('TOPPADDING', (0, 1), (-1, -1), 8),
+            ('BOTTOMPADDING', (0, 1), (-1, -1), 8),
+            # Alternating rows
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [WHITE, LIGHT_GREY]),
+        ]
 
-        ('BACKGROUND',(0,0),(-1,0),colors.darkblue),
-        ('TEXTCOLOR',(0,0),(-1,0),colors.white),
+        # Highlight winner row
+        if len(table_data) > 1:
+            table_style += [
+                ('BACKGROUND', (0, 1), (-1, 1), LIGHT_GOLD),
+                ('LINEAFTER', (0, 1), (-1, 1), 0, WHITE),
+            ]
 
-        ('FONTNAME',(0,0),(-1,0),'Helvetica-Bold'),
-
-        ('GRID',(0,0),(-1,-1),0.5,colors.grey),
-
-        ('ALIGN',(1,1),(-1,-1),'CENTER'),
-
-        ('ROWBACKGROUNDS',
-        (0,1),(-1,-1),
-        [colors.whitesmoke,colors.lightgrey]),
-
-        ('BOTTOMPADDING',(0,0),(-1,0),10),
-        ('TOPPADDING',(0,0),(-1,0),10),
-
-        ]))
-
+        results_table.setStyle(TableStyle(table_style))
         elements.append(results_table)
         elements.append(Spacer(1, 25))
 
-    # -------------------------------------------------
-    # CERTIFICATION DECLARATION
-    # -------------------------------------------------
-    elements.append(Spacer(1, 15))
-    elements.append(Paragraph(
-        "<b>CERTIFICATION</b>",
-        styles["Heading2"]
-    ))
-    elements.append(Spacer(1, 10))
+    # ─────────────────────────────────────────
+    # CERTIFICATION BLOCK
+    # ─────────────────────────────────────────
+    elements.append(PageBreak())
+
+    cert_header = Table(
+        [[Paragraph('OFFICIAL CERTIFICATION', section_style)]],
+        colWidths=[6.3*inch]
+    )
+    cert_header.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), DARK_GREEN),
+        ('TOPPADDING', (0, 0), (-1, -1), 10),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
+        ('LINEBELOW', (0, 0), (-1, -1), 2, GOLD),
+    ]))
+    elements.append(cert_header)
+    elements.append(Spacer(1, 20))
 
     elements.append(Paragraph(
-        "This is to certify that the foregoing results "
-        "constitute the official and final declaration "
-        "of the election conducted under the authority "
-        "of the EduVoteGH Electoral Commission.",
-        styles["Normal"]
+        "This is to certify that the foregoing results constitute the official "
+        "and final declaration of the election conducted under the authority of "
+        "the <b>EduVoteGH Electoral Commission</b>. The results have been "
+        "verified and are hereby declared authentic.",
+        body_style
     ))
-
-    elements.append(Spacer(1, 15))
+    elements.append(Spacer(1, 20))
 
     elements.append(Paragraph(
-        f"<b>Reference Number:</b> {verification_id}",
-        styles["Normal"]
+        f"<b>Reference Number:</b> EVGH-{verification_id}",
+        normal_center
     ))
-
+    elements.append(Paragraph(
+        f"<b>Date of Certification:</b> {generated_on}",
+        normal_center
+    ))
     elements.append(Spacer(1, 40))
 
-    elements.append(Paragraph(
-        "_______________________________",
-        styles["Normal"]
-    ))
-    elements.append(Paragraph(
-        "Returning Officer",
-        styles["Normal"]
-    ))
+    # Signature lines
+    sig_data = [[
+        Paragraph('_______________________<br/><b>Returning Officer</b><br/>'
+                  '<font size="9" color="grey">EduVoteGH Commission</font>',
+                  normal_center),
+        Paragraph('_______________________<br/><b>Institution Head</b><br/>'
+                  f'<font size="9" color="grey">{election.institution.name}</font>',
+                  normal_center),
+        Paragraph('_______________________<br/><b>Date</b><br/>'
+                  f'<font size="9" color="grey">{datetime.now().strftime("%B %d, %Y")}</font>',
+                  normal_center),
+    ]]
+    sig_table = Table(sig_data, colWidths=[2.1*inch, 2.1*inch, 2.1*inch])
+    sig_table.setStyle(TableStyle([
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+    ]))
+    elements.append(sig_table)
+    elements.append(Spacer(1, 40))
 
-    from reportlab.graphics.shapes import Drawing
+    # ─────────────────────────────────────────
+    # QR CODE
+    # ─────────────────────────────────────────
+    # ✅ Clean single-line string — no newlines, no special chars
+    verification_data = (
+        f"EduVoteGH | Election: {election.title} | "
+        f"Ref: EVGH-{verification_id} | "
+        f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}"
+    )
 
-    seal = Drawing(120,120)
-
-    seal.add(Circle(60,60,50))
-    seal.add(Circle(60,60,45))
-
-    seal.add(String(
-        60,
-        60,
-        "OFFICIAL\nSEAL",
-        textAnchor="middle"
-    ))
-
-    elements.append(Spacer(1,10))
-    elements.append(seal)
-
-    elements.append(Spacer(1, 25))
-
-    # -------------------------------------------------
-    # QR CODE SECTION
-    # -------------------------------------------------
     qr_code = qr.QrCodeWidget(verification_data)
     bounds = qr_code.getBounds()
-    width = bounds[2] - bounds[0]
-    height = bounds[3] - bounds[1]
+    qr_width  = bounds[2] - bounds[0]
+    qr_height = bounds[3] - bounds[1]
+    qr_drawing = Drawing(
+        120, 120,
+        transform=[120./qr_width, 0, 0, 120./qr_height, 0, 0]
+    )
+    qr_drawing.add(qr_code)
 
-    drawing = Drawing(100, 100,
-                      transform=[100./width, 0, 0, 100./height, 0, 0])
-    drawing.add(qr_code)
+    elements.append(Paragraph("<b>Scan QR Code to Verify</b>", normal_center))
+    elements.append(Spacer(1, 6))
 
-    elements.append(Paragraph("<b>Scan for Verification</b>", centered))
+    qr_table = Table([[qr_drawing]], colWidths=[6.3*inch])
+    qr_table.setStyle(TableStyle([
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+    ]))
+    elements.append(qr_table)
     elements.append(Spacer(1, 8))
-    elements.append(drawing)
+    elements.append(Paragraph(
+        f"<font size='8' color='grey'>Ref: EVGH-{verification_id}</font>",
+        normal_center
+    ))
 
-    # -------------------------------------------------
-    # WATERMARK + FOOTER
-    # -------------------------------------------------
+    # ─────────────────────────────────────────
+    # WATERMARK + BORDER
+    # ─────────────────────────────────────────
     def add_watermark(canvas_obj, doc):
-
         canvas_obj.saveState()
 
-        # Certificate Border
+        # Double border
         canvas_obj.setLineWidth(3)
-        canvas_obj.rect(
-            25, 25,
-            A4[0] - 50,
-            A4[1] - 50
-        )
-
-        # Inner Border
+        canvas_obj.setStrokeColor(colors.HexColor('#1B5E20'))
+        canvas_obj.rect(20, 20, A4[0]-40, A4[1]-40)
         canvas_obj.setLineWidth(1)
-        canvas_obj.rect(
-            35, 35,
-            A4[0] - 70,
-            A4[1] - 70
-        )
+        canvas_obj.setStrokeColor(colors.HexColor('#C9A84C'))
+        canvas_obj.rect(26, 26, A4[0]-52, A4[1]-52)
 
-        # Watermark
-        canvas_obj.setFont("Helvetica-Bold", 70)
-        canvas_obj.setFillGray(0.9)
-        canvas_obj.translate(300, 450)
+        # Watermark text
+        canvas_obj.setFont("Helvetica-Bold", 65)
+        canvas_obj.setFillColor(colors.HexColor('#1B5E20'))
+        canvas_obj.setFillAlpha(0.06)
+        canvas_obj.translate(A4[0]/2, A4[1]/2)
         canvas_obj.rotate(45)
-        canvas_obj.drawCentredString(0, 0, "EDUVOTE")
+        canvas_obj.drawCentredString(0, 0, "EDUVOTEGH")
+        canvas_obj.rotate(-45)
+        canvas_obj.translate(-A4[0]/2, -A4[1]/2)
 
         canvas_obj.restoreState()
 
         # Footer
-        canvas_obj.setFont("Helvetica", 9)
-        canvas_obj.drawRightString(
-            A4[0] - 40,
-            20,
+        canvas_obj.setFont("Helvetica", 8)
+        canvas_obj.setFillColor(colors.HexColor('#888888'))
+        canvas_obj.drawCentredString(
+            A4[0]/2, 12,
+            f"EduVoteGH Electoral Commission  |  "
+            f"Reference: EVGH-{verification_id}  |  "
             f"Page {doc.page}"
         )
 
@@ -835,50 +1154,49 @@ Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}
 
     return response
 
-
-def contact(request):
+def contact_view(request):
+    success = False
 
     if request.method == "POST":
+        name     = request.POST.get("name", "").strip()
+        email    = request.POST.get("email", "").strip()
+        school   = request.POST.get("school", "").strip()
+        role     = request.POST.get("role", "").strip()
+        phone    = request.POST.get("phone", "").strip()
+        students = request.POST.get("students", "").strip()
+        message  = request.POST.get("message", "").strip()
 
-        name = request.POST.get("name")
-        email = request.POST.get("email")
-        message = request.POST.get("message")
+        # Basic validation
+        if not name or not email or not message:
+            messages.error(request, "Name, email and message are required.")
+            return render(request, "core/contact.html", {"success": False})
 
         # Save to database
         ContactMessage.objects.create(
             name=name,
             email=email,
+            school=school,
+            role=role,
+            phone=phone,
+            students=int(students) if students.isdigit() else None,
             message=message
         )
 
         # Send email notification
         send_mail(
-            subject=f"New EduVoteGH Contact Message from {name}",
-            message=f"Name: {name}\nEmail: {email}\n\nMessage:\n{message}",
+            subject=f"New EduVoteGH Enquiry from {name} — {school}",
+            message=(
+                f"Name: {name}\n"
+                f"Email: {email}\n"
+                f"School: {school}\n"
+                f"Role: {role}\n"
+                f"Phone: {phone}\n"
+                f"Students: {students}\n\n"
+                f"Message:\n{message}"
+            ),
             from_email=settings.DEFAULT_FROM_EMAIL,
             recipient_list=["eduvote.gh@gmail.com"],
             fail_silently=True
-        )
-
-        return render(request, "core/contact.html", {"success": True})
-
-    return render(request, "core/contact.html")
-
-
-def contact_view(request):
-
-    success = False
-
-    if request.method == "POST":
-
-        name = request.POST.get("name")
-        email = request.POST.get("email")
-        message = request.POST.get("message")
-
-        ContactMessage.objects.create(
-            name=name,
-            email=email,
-            message=message
         )
 
         success = True
@@ -887,26 +1205,102 @@ def contact_view(request):
 
 
 def home(request):
-    return render(request, 'core/home.html')
+    now = timezone.now()
+    elections = Election.objects.filter(
+        is_active=True
+    ).order_by('start_time')
+
+    return render(request, 'core/home.html', {
+        'elections': elections,
+        'now': now
+    })
+
+def election_stats_api(request):
+    active_elections = Election.objects.filter(is_active=True)
+
+    if not active_elections.exists():
+        return JsonResponse({"labels": [], "votes": []})
+
+    labels = []
+    votes = []
+
+    for election in active_elections:
+        candidates = Candidate.objects.filter(
+            election=election
+        ).annotate(
+            vote_count=Count('vote', distinct=True)
+        )
+
+        if not candidates.exists():
+            continue
+
+        for c in candidates:
+            labels.append(
+                f"{c.user.get_full_name() or c.user.username} ({election.title})"
+            )
+            votes.append(c.vote_count)  # ✅ 0 is valid, still shows the bar
+
+    return JsonResponse({
+        "labels": labels,
+        "votes": votes
+    })
+
+
+def live_results(request, election_id):
+
+    election = Election.objects.get(id=election_id)
+
+    candidates = Candidate.objects.filter(election=election)
+
+    data = []
+
+    for c in candidates:
+
+        vote_count = Vote.objects.filter(
+            election=election,
+            candidate=c
+        ).count()
+
+        data.append({
+            "name": c.user.username,
+            "votes": vote_count
+        })
+
+    return JsonResponse(data, safe=False)
+
+
 
 from django.http import JsonResponse
-from .models import Election
 
-def cast_vote(request):
-    if request.method == "POST":
-        election = Election.objects.first()  # or get current election
+def turnout_data(request):
+    active_elections = Election.objects.filter(is_active=True)
 
-        # BLOCK voting if election inactive
-        if not election.is_active:
-            return JsonResponse({
-                "success": False,
-                "message": "Voting is currently closed."
-            }, status=403)
-
-        # Continue with voting logic
-        # save vote here
-
+    if not active_elections.exists():
         return JsonResponse({
-            "success": True,
-            "message": "Vote cast successfully."
+            "votes_cast": 0,
+            "remaining_voters": 0,
+            "turnout_percentage": 0
         })
+
+    # Count only voters & votes in active elections
+    total_voters = Voter.objects.filter(
+        elections__in=active_elections
+    ).distinct().count()
+
+    total_votes = Vote.objects.filter(
+        election__in=active_elections
+    ).count()
+
+    remaining = total_voters - total_votes
+
+    turnout_percentage = (
+        round((total_votes / total_voters) * 100, 2)
+        if total_voters > 0 else 0
+    )
+
+    return JsonResponse({
+        "votes_cast": total_votes,
+        "remaining_voters": remaining,
+        "turnout_percentage": turnout_percentage
+    })
+

@@ -1,465 +1,340 @@
 {% extends 'core/base.html' %}
-
-{% block title %}EduVoteGH | Secure Digital Elections{% endblock %}
+{% load static %}
+{% block title %}EduVoteGH | Secure Digital Elections for Schools{% endblock %}
 
 {% block content %}
 
+<!-- HERO -->
+<div class="hero-section">
+
+    <div class="hero-bg">
+        <div class="hero-slide slide1"></div>
+        <div class="hero-slide slide2"></div>
+        <div class="hero-slide slide3"></div>
+    </div>
+
+    <div class="hero-overlay"></div>
+
+    <div class="hero-content">
+        <img src="{% static 'images/logo.svg' %}"
+             width="90" height="90"
+             alt="EduVoteGH"
+             style="border-radius:50%; margin-bottom:20px;
+                    animation: rotateSeal 12s linear infinite;
+                    border: 3px solid rgba(255,255,255,0.4);">
+
+        <h1 style="font-size:48px; font-weight:700; margin-bottom:12px;
+                   text-shadow:0 2px 8px rgba(0,0,0,0.4);">
+            EduVoteGH
+        </h1>
+
+        <p style="font-size:19px; opacity:0.95; margin-bottom:8px;
+                  text-shadow:0 1px 4px rgba(0,0,0,0.3);">
+            Secure • Transparent • Real-Time Digital Elections
+        </p>
+
+        <p style="font-size:16px; opacity:0.85; max-width:560px;
+                  margin:0 auto 28px; text-shadow:0 1px 4px rgba(0,0,0,0.3);">
+            Conduct fair, fast and tamper-proof elections for your school or institution.
+        </p>
+
+        <div>
+            {% if not request.user.is_authenticated %}
+                <a href="{% url 'voter_login' %}" class="btn btn-light btn-lg px-4 me-2">
+                    Login to Vote
+                </a>
+                <a href="{% url 'core_contact' %}" class="btn btn-outline-light btn-lg px-4">
+                    Get Started
+                </a>
+            {% else %}
+                <a href="{% url 'vote_dashboard' %}" class="btn btn-warning btn-lg px-4">
+                    Go to Dashboard
+                </a>
+            {% endif %}
+        </div>
+    </div>
+
+</div>
+
 <style>
-
-/* HERO */
-
-.hero{
-background: linear-gradient(135deg,#0d6efd,#0dcaf0);
-color:white;
-padding:90px 30px;
-border-radius:20px;
-text-align:center;
-margin-bottom:50px;
+.hero-section {
+    position: relative;
+    width: 100vw;
+    margin-left: calc(-1 * var(--bs-gutter-x, 0.75rem));
+    margin-right: calc(-1 * var(--bs-gutter-x, 0.75rem));
+    min-height: 520px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    margin-bottom: 50px;
+    text-align: center;
+    color: white;
 }
-
-.hero h1{
-font-size:42px;
-font-weight:700;
-margin-bottom:10px;
+.hero-bg {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
 }
-
-.hero p{
-font-size:18px;
-opacity:0.95;
+.hero-slide {
+    position: absolute;
+    inset: 0;
+    background-size: cover;
+    background-position: center;
+    opacity: 0;
+    animation: fadeSlide 18s infinite;
 }
-
-.hero-buttons{
-margin-top:25px;
+.slide1 {
+    background-image: url('https://images.unsplash.com/photo-1523050854058-8df90110c9f1?w=1600&q=80');
+    animation-delay: 0s;
 }
-
-/* TRUST BAR */
-
-.trust-bar{
-background:#f8f9fa;
-padding:20px;
-border-radius:12px;
-margin-bottom:40px;
-text-align:center;
-font-size:15px;
+.slide2 {
+    background-image: url('https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=1600&q=80');
+    animation-delay: 6s;
 }
-
-/* ELECTION CARDS */
-
-.election-card{
-border:none;
-border-radius:15px;
-transition:0.3s ease;
-overflow:hidden;
+.slide3 {
+    background-image: url('https://images.unsplash.com/photo-1529390079861-591de354faf5?w=1600&q=80');
+    animation-delay: 12s;
 }
-
-.election-card:hover{
-transform:translateY(-5px);
-box-shadow:0 10px 25px rgba(0,0,0,0.12);
+@keyframes fadeSlide {
+    0%   { opacity: 0; transform: scale(1.00); }
+    5%   { opacity: 1; transform: scale(1.00); }
+    30%  { opacity: 1; transform: scale(1.06); }
+    38%  { opacity: 0; transform: scale(1.08); }
+    100% { opacity: 0; transform: scale(1.00); }
 }
-
-.card-body{
-padding:22px;
+.hero-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+        135deg,
+        rgba(13, 110, 253, 0.72) 0%,
+        rgba(1, 60, 30, 0.80) 100%
+    );
+    z-index: 1;
 }
-
-.election-title{
-font-size:18px;
-font-weight:700;
-margin-bottom:10px;
+.hero-content {
+    position: relative;
+    z-index: 2;
+    padding: 90px 30px;
+    max-width: 700px;
+    margin: 0 auto;
 }
-
-/* STATUS BADGES */
-
-.live-badge{
-animation:pulse 1.2s infinite;
+@keyframes rotateSeal {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
 }
-
-@keyframes pulse{
-0%{box-shadow:0 0 0 0 rgba(220,53,69,0.7);}
-70%{box-shadow:0 0 0 10px rgba(220,53,69,0);}
-100%{box-shadow:0 0 0 0 rgba(220,53,69,0);}
+@keyframes pulse {
+    0%   { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.7); }
+    70%  { box-shadow: 0 0 0 10px rgba(220, 53, 69, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0); }
 }
-
-/* COUNTDOWN */
-
-.countdown{
-font-size:14px;
-font-weight:600;
-color:#dc3545;
-margin-top:5px;
+.card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 10px 25px rgba(0,0,0,0.10) !important;
 }
-
-/* SECTION TITLE */
-
-.section-title{
-font-size:24px;
-font-weight:700;
-margin-bottom:25px;
+@media (max-width: 768px) {
+    .hero-content h1 { font-size: 32px; }
+    .hero-content p  { font-size: 15px; }
 }
-
-/* MOBILE */
-
-@media(max-width:768px){
-
-.hero h1{
-font-size:30px;
-}
-
-}
-
 </style>
 
+<div class="container">
 
-<div class="container mt-5">
+    <!-- TRUST BAR -->
+    <div class="text-center bg-light rounded p-3 mb-5 shadow-sm">
+        Trusted digital voting platform designed for
+        <strong>schools, colleges and institutions in Ghana.</strong>
+    </div>
 
-<!-- HERO -->
+    <!-- ACTIVE ELECTIONS -->
+    <h4 class="fw-bold mb-4">Available Elections</h4>
 
-<div class="hero shadow">
+    {% if elections %}
+    <div class="row g-4 mb-5">
+        {% for election in elections %}
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm h-100"
+                 style="border-radius:15px; overflow:hidden; transition:0.3s ease;">
+                <div class="card-body p-4">
 
-<h1>EduVoteGH</h1>
+                    <h5 class="fw-bold mb-2">{{ election.title }}</h5>
+                    <p class="text-muted small mb-3">{{ election.institution.name }}</p>
 
-<p>
-Secure • Transparent • Real-Time Digital Elections for Schools & Institutions
-</p>
+                    {% if election.start_time > now %}
+                        <span class="badge bg-warning text-dark mb-2">Upcoming</span>
+                    {% elif election.end_time >= now %}
+                        <span class="badge bg-danger mb-2"
+                              style="animation: pulse 1.2s infinite;">
+                            LIVE NOW
+                        </span>
+                    {% else %}
+                        <span class="badge bg-secondary mb-2">Closed</span>
+                    {% endif %}
 
-<p>
-Conduct fair, fast and tamper-proof elections with our trusted digital voting platform.
-</p>
+                    {% if election.end_time >= now %}
+                        <p class="fw-semibold text-danger small countdown"
+                           data-end="{{ election.end_time|date:'Y-m-dTH:i:s' }}">
+                            Calculating...
+                        </p>
+                    {% else %}
+                        <p class="text-muted small">Election has ended</p>
+                    {% endif %}
 
-<div class="hero-buttons">
+                    <div class="mt-3">
+                        {% if election.start_time <= now and election.end_time >= now %}
+                            {% if request.user.is_authenticated %}
+                                <a href="{% url 'vote_page' election.id %}"
+                                   class="btn btn-success btn-sm">Vote Now</a>
+                            {% else %}
+                                <a href="{% url 'voter_login' %}"
+                                   class="btn btn-success btn-sm">Login to Vote</a>
+                            {% endif %}
+                        {% elif election.end_time < now %}
+                            <a href="{% url 'election_results' election.id %}"
+                               class="btn btn-outline-primary btn-sm">View Results</a>
+                        {% else %}
+                            <button class="btn btn-secondary btn-sm" disabled>
+                                Not Started
+                            </button>
+                        {% endif %}
+                    </div>
 
-{% if not request.user.is_authenticated %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
 
-<a href="{% url 'voter_login' %}" 
-class="btn btn-light btn-lg px-4 me-2">
-Login to Vote
-</a>
+    {% else %}
+    <div class="alert alert-light border text-center mb-5">
+        No elections are available at the moment.
+    </div>
+    {% endif %}
 
-{% else %}
+    <!-- STATS -->
+    <div class="row text-center g-3 mb-5">
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm p-4">
+                <h2 class="fw-bold text-primary">10+</h2>
+                <p class="mb-0 text-muted">Elections Conducted</p>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm p-4">
+                <h2 class="fw-bold text-success">5,000+</h2>
+                <p class="mb-0 text-muted">Votes Cast Securely</p>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm p-4">
+                <h2 class="fw-bold text-danger">20+</h2>
+                <p class="mb-0 text-muted">Schools & Institutions</p>
+            </div>
+        </div>
+    </div>
 
-<a href="{% url 'vote_dashboard' %}" 
-class="btn btn-warning btn-lg px-4">
-Go to Dashboard
-</a>
+    <!-- HOW IT WORKS -->
+    <h3 class="fw-bold text-center mb-4">How EduVoteGH Works</h3>
+    <div class="row g-3 mb-5">
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm p-4 h-100 text-center">
+                <div style="font-size:32px; margin-bottom:12px;">🏫</div>
+                <h5 class="fw-bold">1. School Registers Election</h5>
+                <p class="text-muted small mb-0">
+                    Administrators create the election, add positions
+                    and candidates directly in the system.
+                </p>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm p-4 h-100 text-center">
+                <div style="font-size:32px; margin-bottom:12px;">🔑</div>
+                <h5 class="fw-bold">2. Voters Receive Login</h5>
+                <p class="text-muted small mb-0">
+                    Students receive secure login credentials to access
+                    the voting portal from any device.
+                </p>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm p-4 h-100 text-center">
+                <div style="font-size:32px; margin-bottom:12px;">📊</div>
+                <h5 class="fw-bold">3. Results Are Automatic</h5>
+                <p class="text-muted small mb-0">
+                    Votes are recorded instantly and results are calculated
+                    automatically with full transparency.
+                </p>
+            </div>
+        </div>
+    </div>
 
-{% endif %}
+    <!-- TESTIMONIALS -->
+    <h3 class="fw-bold text-center mb-4">What Schools Say</h3>
+    <div class="row g-3 mb-5">
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm p-4 h-100">
+                <p class="text-muted fst-italic mb-3">
+                    "EduVoteGH made our SRC elections fast and transparent.
+                    Students trusted the results immediately."
+                </p>
+                <strong class="small">— St Francis College of Education</strong>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm p-4 h-100">
+                <p class="text-muted fst-italic mb-3">
+                    "The platform eliminated manual counting
+                    and reduced election disputes significantly."
+                </p>
+                <strong class="small">— University Student Council</strong>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm p-4 h-100">
+                <p class="text-muted fst-italic mb-3">
+                    "A reliable and professional voting system
+                    for modern educational institutions."
+                </p>
+                <strong class="small">— School Administration, Accra</strong>
+            </div>
+        </div>
+    </div>
+
+    <!-- CTA -->
+    <div class="text-center bg-light rounded p-5 mb-5 border">
+        <h4 class="fw-bold mb-2">Ready to run your next election?</h4>
+        <p class="text-muted mb-4">
+            Get in touch and we'll set up EduVoteGH for your school within 24 hours.
+        </p>
+        <a href="{% url 'core_contact' %}" class="btn btn-primary btn-lg px-5">
+            Contact Us
+        </a>
+    </div>
 
 </div>
-
-</div>
-
-
-<!-- TRUST MESSAGE -->
-
-<div class="trust-bar shadow-sm">
-
-Trusted digital voting platform designed for  
-<strong>schools, colleges and institutions in Ghana.</strong>
-
-</div>
-
-
-
-<!-- ELECTIONS -->
-
-<div class="section-title">
-Available Elections
-</div>
-
-
-{% if elections %}
-
-<div class="row">
-
-{% for election in elections %}
-
-<div class="col-md-4 mb-4">
-
-<div class="card election-card shadow-sm h-100">
-
-<div class="card-body">
-
-<div class="election-title">
-{{ election.title }}
-</div>
-
-
-<!-- STATUS -->
-
-{% if election.start_time > now %}
-
-<span class="badge bg-warning text-dark">
-Upcoming
-</span>
-
-{% elif election.start_time <= now and election.end_time >= now %}
-
-<span class="badge bg-danger live-badge">
-LIVE NOW
-</span>
-
-{% else %}
-
-<span class="badge bg-secondary">
-Closed
-</span>
-
-{% endif %}
-
-
-
-<!-- COUNTDOWN -->
-
-{% if election.start_time <= now and election.end_time >= now %}
-
-<p class="countdown"
-data-end="{{ election.end_time|date:'Y-m-d H:i:s' }}">
-Calculating...
-</p>
-
-{% elif election.start_time > now %}
-
-<p class="countdown"
-data-end="{{ election.start_time|date:'Y-m-d H:i:s' }}">
-Starts soon...
-</p>
-
-{% else %}
-
-<p class="text-muted small">
-Election has ended
-</p>
-
-{% endif %}
-
-
-
-<!-- BUTTONS -->
-
-{% if election.start_time <= now and election.end_time >= now %}
-
-<a href="{% url 'vote_page' election.id %}"
-class="btn btn-success btn-sm mt-2">
-Vote Now
-</a>
-
-{% elif election.end_time < now %}
-
-<a href="{% url 'election_results' election.id %}"
-class="btn btn-outline-primary btn-sm mt-2">
-View Results
-</a>
-
-{% else %}
-
-<button class="btn btn-secondary btn-sm mt-2" disabled>
-Not Started
-</button>
-
-{% endif %}
-
-</div>
-</div>
-
-</div>
-
-{% endfor %}
-
-</div>
-
-{% else %}
-
-<p class="text-muted">
-No elections available at the moment.
-</p>
-
-{% endif %}
-
-<!-- STATISTICS -->
-
-<div class="row text-center mt-5">
-
-<div class="col-md-4 mb-4">
-<div class="card shadow-sm border-0 p-4">
-<h2 class="text-primary fw-bold">10+</h2>
-<p class="mb-0">Elections Conducted</p>
-</div>
-</div>
-
-<div class="col-md-4 mb-4">
-<div class="card shadow-sm border-0 p-4">
-<h2 class="text-success fw-bold">5000+</h2>
-<p class="mb-0">Votes Cast Securely</p>
-</div>
-</div>
-
-<div class="col-md-4 mb-4">
-<div class="card shadow-sm border-0 p-4">
-<h2 class="text-danger fw-bold">20+</h2>
-<p class="mb-0">Schools & Institutions</p>
-</div>
-</div>
-
-</div>
-
-<!-- HOW IT WORKS -->
-
-<div class="mt-5">
-
-<h3 class="fw-bold text-center mb-4">
-How EduVoteGH Works
-</h3>
-
-<div class="row text-center">
-
-<div class="col-md-4 mb-4">
-
-<div class="card shadow-sm border-0 p-4 h-100">
-
-<h5 class="fw-bold">1️⃣ School Registers Election</h5>
-
-<p class="text-muted">
-School administrators create the election,
-add positions and candidates directly in the system.
-</p>
-
-</div>
-
-</div>
-
-
-<div class="col-md-4 mb-4">
-
-<div class="card shadow-sm border-0 p-4 h-100">
-
-<h5 class="fw-bold">2️⃣ Voters Receive Login</h5>
-
-<p class="text-muted">
-Students receive secure login credentials
-to access the voting portal from their phone or computer.
-</p>
-
-</div>
-
-</div>
-
-
-<div class="col-md-4 mb-4">
-
-<div class="card shadow-sm border-0 p-4 h-100">
-
-<h5 class="fw-bold">3️⃣ Votes Count Automatically</h5>
-
-<p class="text-muted">
-Votes are recorded instantly and results are calculated
-automatically with full transparency.
-</p>
-
-</div>
-
-</div>
-
-</div>
-
-</div>
-<!-- TESTIMONIALS -->
-
-<div class="mt-5">
-
-<h3 class="fw-bold text-center mb-4">
-What Schools Say
-</h3>
-
-<div class="row">
-
-<div class="col-md-4 mb-4">
-
-<div class="card shadow-sm border-0 p-4 h-100">
-
-<p class="text-muted">
-"EduVoteGH made our SRC elections fast and transparent.
-Students trusted the results immediately."
-</p>
-
-<strong>— St Francis College of Education</strong>
-
-</div>
-
-</div>
-
-
-<div class="col-md-4 mb-4">
-
-<div class="card shadow-sm border-0 p-4 h-100">
-
-<p class="text-muted">
-"The platform eliminated manual counting
-and reduced election disputes."
-</p>
-
-<strong>— University Student Council</strong>
-
-</div>
-
-</div>
-
-
-<div class="col-md-4 mb-4">
-
-<div class="card shadow-sm border-0 p-4 h-100">
-
-<p class="text-muted">
-"A reliable and professional voting system
-for modern educational institutions."
-</p>
-
-<strong>— School Administration</strong>
-
-</div>
-
-</div>
-
-</div>
-
-</div>
-
-</div>
-
-
 
 <script>
+function updateCountdowns() {
+    document.querySelectorAll(".countdown").forEach(function(el) {
+        const end = new Date(el.dataset.end).getTime();
+        const now = new Date().getTime();
+        const distance = end - now;
 
-function updateCountdowns(){
+        if (distance <= 0) { el.innerHTML = "Ended"; return; }
 
-const countdowns=document.querySelectorAll(".countdown");
+        const days    = Math.floor(distance / (1000 * 60 * 60 * 24));
+        const hours   = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+        const seconds = Math.floor((distance % (1000 * 60)) / 1000);
 
-countdowns.forEach(function(element){
-
-const endDate=new Date(element.dataset.end).getTime();
-const now=new Date().getTime();
-const distance=endDate-now;
-
-if(distance<0){
-element.innerHTML="Time reached";
-return;
+        el.innerHTML =
+            (days > 0 ? days + "d " : "") +
+            hours + "h " + minutes + "m " + seconds + "s remaining";
+    });
 }
-
-const days=Math.floor(distance/(1000*60*60*24));
-const hours=Math.floor((distance%(1000*60*60*24))/(1000*60*60));
-const minutes=Math.floor((distance%(1000*60*60))/(1000*60));
-
-element.innerHTML=
-days+"d "+
-hours+"h "+
-minutes+"m remaining";
-
-});
-
-}
-
 updateCountdowns();
-
-setInterval(updateCountdowns,60000);
-
+setInterval(updateCountdowns, 1000);
 </script>
 
 {% endblock %}

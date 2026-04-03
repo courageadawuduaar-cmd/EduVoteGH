@@ -9,6 +9,8 @@
 
     <title>{% block title %}EduVoteGH{% endblock %}</title>
 
+    <meta name="description" content="EduVoteGH - Secure digital election platform for institutions and organizations in Ghana.">
+
     <!-- Favicon -->
     <link rel="icon" type="image/x-icon" href="{% static 'images/favicon.ico' %}">
     <link rel="icon" type="image/png" sizes="32x32" href="{% static 'images/favicon-32x32.png' %}">
@@ -61,7 +63,10 @@ bottom:20px;
 right:20px;
 background:#25D366;
 color:white;
-padding:12px 18px;
+padding:12px 20px;
+display:flex;
+align-items:center;
+gap:6px;
 border-radius:30px;
 font-weight:600;
 text-decoration:none;
@@ -74,6 +79,12 @@ transition:all 0.3s ease;
 background:#1ebe5b;
 transform:scale(1.05);
 }
+
+@keyframes rotateSeal {
+        from { transform: rotate(0deg); }
+        to   { transform: rotate(360deg); }
+    }
+
     </style>
 </head>
 
@@ -82,13 +93,18 @@ transform:scale(1.05);
 <nav class="navbar navbar-expand-lg navbar-dark bg-primary shadow-sm">
     <div class="container-fluid">
 
-        <a class="navbar-brand fw-bold fs-5 text-truncate" href="/">
-            EduVoteGH
-            {% if institution %}
-                <span class="small d-block d-md-inline">
-                    | {{ institution.name }}
-                </span>
-            {% endif %}
+        <a class="navbar-brand fw-bold fs-5 d-flex align-items-center gap-2 text-truncate" href="/">
+            <img src="{% static 'images/logo.svg' %}" height="50" width="50"
+                alt="EduVoteGH Logo"
+                style="border-radius: 50%; object-fit: cover; animation: rotateSeal 12s linear infinite;">
+            <span>
+                EduVoteGH
+                {% if institution %}
+                    <span class="small d-block d-md-inline">
+                        | {{ institution.name }}
+                    </span>
+                {% endif %}
+            </span>
         </a>
 
         <button class="navbar-toggler" type="button"
@@ -150,20 +166,30 @@ transform:scale(1.05);
     </div>
 </nav>
 
-<div class="container-fluid py-3 px-3">
+{% if messages %}
+<div id="alert-container" class="position-fixed top-0 end-0 p-3" style="z-index:9999; width:350px;">
 
-    {% if messages %}
-        {% for message in messages %}
-            <div class="alert alert-success alert-dismissible fade show" role="alert">
-                {{ message }}
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            </div>
-        {% endfor %}
-    {% endif %}
+    {% for message in messages %}
 
-    {% block content %}{% endblock %}
+    <div class="alert alert-{{ message.tags }} alert-dismissible fade show shadow-sm">
+
+        {{ message }}
+
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+
+    </div>
+
+    {% endfor %}
 
 </div>
+{% endif %}
+
+<main class="mt-4 mb-5">
+
+    {% block content %}
+    {% endblock %}
+
+</main>
 
 <!-- ✅ ADVANCED PROFESSIONAL FOOTER -->
 <footer class="bg-dark text-white mt-5 pt-5 pb-4">
@@ -197,7 +223,7 @@ transform:scale(1.05);
                         <a href="{% url 'about' %}" class="footer-link">About Us</a>
                     </li>
                     <li class="mb-2">
-                        <a href="{% url 'contact' %}" class="footer-link">Contact</a>
+                        <a href="{% url 'core_contact' %}" class="footer-link">Contact</a>
                     </li>
                 </ul>
             </div>
@@ -244,7 +270,7 @@ transform:scale(1.05);
             </div>
 
             <div class="mt-2 mt-md-0">
-                Designed & Secured by EduVoteGH
+                Designed & Secured by 3-24 Services.
             </div>
 
         </div>
@@ -271,11 +297,29 @@ transform:scale(1.05);
 
 <a href="https://wa.me/233545133351?text=Hello%20EduVoteGH%2C%20I%20need%20help%20with%20your%20election%20platform"
    class="whatsapp-float"
-   target="_blank">
+   target="_blank"
+   rel="noopener">
 
-    💬 Chat With Us
-
+    💬 Chat With EduVoteGH
 </a>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const alerts = document.querySelectorAll(".alert");
+
+    alerts.forEach(function(alert) {
+        setTimeout(function() {
+            alert.style.transition = "opacity 0.5s";
+            alert.style.opacity = "0";
+
+            setTimeout(function(){
+                alert.remove();
+            }, 500);
+
+        }, 4000);
+    });
+});
+</script>
 
 </body>
 </html>

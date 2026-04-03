@@ -1,168 +1,95 @@
-{% extends "core/base.html" %}
+{% extends 'core/base.html' %}
+{% block title %}Contact Us — EduVoteGH{% endblock %}
+
 {% block content %}
+<div class="container py-5" style="max-width: 680px;">
 
-<style>
+    <div class="mb-4">
+        <h2 class="fw-bold mb-1">Contact Us</h2>
+        <p class="text-muted">Interested in EduVoteGH for your school? Fill in the form and we'll get back to you.</p>
+    </div>
 
-.contact-container{
-max-width:900px;
-margin:auto;
-padding:30px;
-font-family:Arial, Helvetica, sans-serif;
-}
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} alert-dismissible fade show">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
 
-.contact-title{
-font-size:32px;
-font-weight:bold;
-margin-bottom:10px;
-}
+    {% if success %}
+        <div class="alert alert-success">
+            <h5 class="fw-bold mb-1">Message received!</h5>
+            <p class="mb-0">Thank you for reaching out. We'll get back to you within 24 hours.</p>
+        </div>
+    {% else %}
 
-.contact-subtitle{
-color:#555;
-margin-bottom:30px;
-}
+    <div class="card border shadow-sm">
+        <div class="card-body p-4">
+            <form method="POST" novalidate>
+                {% csrf_token %}
 
-.contact-grid{
-display:grid;
-grid-template-columns:1fr 1fr;
-gap:40px;
-}
+                <!-- Name & Email -->
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Full name <span class="text-danger">*</span></label>
+                        <input type="text" name="name" class="form-control" placeholder="Kwame Mensah" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Email address <span class="text-danger">*</span></label>
+                        <input type="email" name="email" class="form-control" placeholder="you@school.edu.gh" required>
+                    </div>
+                </div>
 
-.contact-info p{
-margin:10px 0;
-font-size:16px;
-}
+                <!-- School & Role -->
+                <div class="row g-3 mb-3">
+                    <div class="col-md-8">
+                        <label class="form-label fw-semibold">School name</label>
+                        <input type="text" name="school" class="form-control" placeholder="Accra Academy">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">Your role</label>
+                        <select name="role" class="form-select">
+                            <option value="">-- Select --</option>
+                            <option value="Headmaster">Headmaster</option>
+                            <option value="Teacher">Teacher</option>
+                            <option value="SRC Advisor">SRC Advisor</option>
+                            <option value="Student">Student</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                </div>
 
-.contact-form input,
-.contact-form textarea{
-width:100%;
-padding:12px;
-margin-bottom:15px;
-border:1px solid #ccc;
-border-radius:6px;
-font-size:14px;
-}
+                <!-- Phone & Students -->
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Phone number</label>
+                        <input type="tel" name="phone" class="form-control" placeholder="+233 XX XXX XXXX">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Approx. number of students</label>
+                        <input type="number" name="students" class="form-control" placeholder="e.g. 1200" min="0">
+                    </div>
+                </div>
 
-.contact-form textarea{
-height:120px;
-resize:none;
-}
+                <!-- Message -->
+                <div class="mb-4">
+                    <label class="form-label fw-semibold">Message <span class="text-danger">*</span></label>
+                    <textarea name="message" class="form-control" rows="4"
+                              placeholder="Tell us about your school and what you need..." required></textarea>
+                </div>
 
-.contact-form button{
-background:#c8102e;
-color:white;
-border:none;
-padding:12px 20px;
-border-radius:6px;
-font-size:15px;
-cursor:pointer;
-}
+                <div class="d-flex justify-content-between align-items-center pt-3 border-top">
+                    <p class="text-muted small mb-0">We typically respond within 24 hours.</p>
+                    <button type="submit" class="btn btn-primary px-4">Send message</button>
+                </div>
 
-.contact-form button:hover{
-background:#a50d24;
-}
+            </form>
+        </div>
+    </div>
 
-@media(max-width:768px){
-.contact-grid{
-grid-template-columns:1fr;
-}
-}
-
-</style>
-
-
-<div class="contact-container">
-
-<div class="contact-title">Contact EduVoteGH</div>
-
-<div class="contact-subtitle">
-Have questions about running digital elections in your school?  
-Send us a message and we will respond as soon as possible.
-</div>
-
-
-<div class="contact-grid">
-
-<!-- Contact Information -->
-
-<div class="contact-info">
-
-<h3>Contact Information</h3>
-
-<p><strong>Email:</strong><br>
-eduvote.gh@gmail.com
-</p>
-
-<p><strong>Phone:</strong><br>
-+233 545133351
-</p>
-
-<p><strong>WhatsApp:</strong><br>
-+233 545133351
-</p>
-
-<p><strong>Location:</strong><br>
-Gbawe Telecom, Accra – Ghana
-</p>
+    {% endif %}
 
 </div>
-
-<div class="contact-form">
-
-{% if success %}
-
-<div style="background:#d4edda;padding:12px;border-radius:6px;margin-bottom:15px;">
-Message sent successfully. We will respond shortly.
-</div>
-
-{% endif %}
-
-<form method="post">
-
-<!-- Contact Form -->
-
-<div class="contact-form">
-
-<form method="post">
-
-{% csrf_token %}
-
-<input type="text" name="name" placeholder="Your Name" required>
-
-<input type="email" name="email" placeholder="Your Email" required>
-
-<input type="text" name="phone" placeholder="Phone / WhatsApp Number" required>
-
-<input type="text" name="school" placeholder="School / Institution Name" required>
-
-<select name="role" required>
-<option value="">Your Role</option>
-<option value="Teacher">Teacher</option>
-<option value="Administrator">Administrator</option>
-<option value="SRC">Student Leader (SRC)</option>
-<option value="ICT Officer">ICT Officer</option>
-<option value="Other">Other</option>
-</select>
-
-<input type="number" name="students" placeholder="Approximate Number of Students">
-
-<textarea name="message" placeholder="Your Message" required></textarea>
-
-<button type="submit">Send Message</button>
-
-</form>
-
-</div>
-
-
-
-</div>
-
-</div>
-
-</div>
-
-</div>
-
-</div>
-
 {% endblock %}

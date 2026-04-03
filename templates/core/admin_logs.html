@@ -1,48 +1,117 @@
 {% extends 'core/base.html' %}
-{% block title %}Admin Logs{% endblock %}
+{% block title %}Audit Logs — EduVoteGH{% endblock %}
 
 {% block content %}
-<div class="container mt-5">
+<div class="container-fluid py-4 px-4">
 
-    <h2 class="fw-bold mb-4">Admin Audit Logs</h2>
-
-    <div class="card shadow border-0">
-        <div class="card-body table-responsive">
-
-            <table class="table table-hover">
-                <thead>
-                    <tr>
-                        <th>Admin</th>
-                        <th>Action</th>
-                        <th>Election</th>
-                        <th>Timestamp</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for log in logs %}
-                    <tr>
-                        <td>{{ log.admin.username }}</td>
-                        <td>{{ log.action }}</td>
-                        <td>
-                            {% if log.election %}
-                                {{ log.election.title }}
-                            {% else %}
-                                -
-                            {% endif %}
-                        </td>
-                        <td>{{ log.timestamp|date:"M d, Y H:i:s" }}</td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="4" class="text-center text-muted">
-                            No logs recorded yet.
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold mb-0">Audit Logs</h2>
+            <small class="text-muted">Full history of all admin actions</small>
         </div>
+        <a href="{% url 'admin_panel' %}" class="btn btn-outline-secondary btn-sm">
+            &larr; Back to Dashboard
+        </a>
+    </div>
+
+    <!-- Log Table -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="ps-3">Admin</th>
+                            <th>Action</th>
+                            <th>Election</th>
+                            <th class="pe-3">Timestamp</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for log in logs %}
+                        <tr>
+                            <td class="ps-3">
+                                <div class="d-flex align-items-center gap-2">
+                                    <div style="width:32px; height:32px; border-radius:50%;
+                                                background:#e9ecef; display:flex;
+                                                align-items:center; justify-content:center;
+                                                font-size:13px; font-weight:600;">
+                                        {{ log.admin.username|slice:":1"|upper }}
+                                    </div>
+                                    <span class="fw-semibold">{{ log.admin.username }}</span>
+                                </div>
+                            </td>
+                            <td>{{ log.action }}</td>
+                            <td>
+                                {% if log.election %}
+                                    <span class="badge bg-light text-dark border">
+                                        {{ log.election.title }}
+                                    </span>
+                                {% else %}
+                                    <span class="text-muted">—</span>
+                                {% endif %}
+                            </td>
+                            <td class="pe-3 text-muted small">
+                                {{ log.timestamp|date:"M d, Y H:i:s" }}
+                                <br>
+                                <span class="text-muted" style="font-size:11px;">
+                                    {{ log.timestamp|timesince }} ago
+                                </span>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="4" class="text-center text-muted py-5">
+                                No audit logs recorded yet.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Pagination -->
+        {% if logs.has_other_pages %}
+        <div class="card-footer bg-white border-top d-flex justify-content-between align-items-center py-3 px-3">
+            <small class="text-muted">
+                Page {{ logs.number }} of {{ logs.paginator.num_pages }}
+            </small>
+            <nav>
+                <ul class="pagination pagination-sm mb-0">
+                    {% if logs.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ logs.previous_page_number }}">
+                            &laquo; Prev
+                        </a>
+                    </li>
+                    {% endif %}
+
+                    {% for num in logs.paginator.page_range %}
+                        {% if logs.number == num %}
+                        <li class="page-item active">
+                            <span class="page-link">{{ num }}</span>
+                        </li>
+                        {% elif num > logs.number|add:"-3" and num < logs.number|add:"3" %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+                        </li>
+                        {% endif %}
+                    {% endfor %}
+
+                    {% if logs.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ logs.next_page_number }}">
+                            Next &raquo;
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+        {% endif %}
+
     </div>
 
 </div>

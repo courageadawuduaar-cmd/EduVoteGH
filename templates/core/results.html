@@ -1,245 +1,263 @@
 {% extends 'core/base.html' %}
-
-{% block title %}Results - {{ election.title }}{% endblock %}
-
-{% block head %}
-{{ block.super }}
-
-<style>
-
-.candidate-row{
-display:flex;
-align-items:flex-start;
-gap:12px;
-margin-bottom:16px;
-}
-
-.candidate-img{
-width:50px;
-height:50px;
-border-radius:50%;
-object-fit:cover;
-flex-shrink:0;
-}
-
-.candidate-info{
-flex:1;
-width:100%;
-}
-
-.candidate-name{
-font-weight:600;
-font-size:14px;
-margin-bottom:6px;
-}
-
-.bar-container{
-width:100%;
-background:#e6e6e6;
-border-radius:10px;
-margin-top:6px;
-}
-
-.vote-bar{
-height:100%;
-display:block;
-min-width:4px;
-transition: width 1s ease-in-out;
-}
-
-.vote-text{
-font-size:13px;
-margin-top:4px;
-color:#444;
-}
-
-</style>
-{% endblock %}
-
+{% load static %}
+{% block title %}Official Results — {{ election.title }}{% endblock %}
 
 {% block content %}
+<div class="container py-4" style="max-width: 900px;">
 
-<h2 class="mb-4 text-center text-md-start">
-{{ election.title }} - Results
-</h2>
+    <!-- Header Banner -->
+    <div class="text-center py-4 px-3 mb-4 rounded-3"
+         style="background: linear-gradient(135deg, #1B5E20 0%, #0d6efd 100%); color: white;">
 
-<div class="d-flex justify-content-center justify-content-md-end mb-3">
-<a href="{% url 'export_results_pdf' election.id %}" class="btn btn-danger shadow-sm">
-📄 Download Official PDF
-</a>
+        <img src="{% static 'images/logo.svg' %}"
+             width="70" height="70"
+             style="border-radius:50%; border:3px solid rgba(255,255,255,0.5);
+                    animation: rotateSeal 12s linear infinite; margin-bottom:12px;">
+
+        <h6 class="mb-1 text-white-50 text-uppercase letter-spacing-2" style="letter-spacing:3px; font-size:12px;">
+            {{ election.institution.name }}
+        </h6>
+
+        <h3 class="fw-bold mb-1">{{ election.title }}</h3>
+
+        <p class="mb-2 text-white-50 small">Official Declaration of Results</p>
+
+        {% if election.is_closed %}
+            <span class="badge bg-success px-3 py-2">
+                ✔ Final & Certified
+            </span>
+        {% else %}
+            <span class="badge bg-warning text-dark px-3 py-2">
+                ⏳ Provisional — Election Ongoing
+            </span>
+        {% endif %}
+
+    </div>
+
+    <!-- Summary Stats -->
+    <div class="row g-3 mb-4">
+        <div class="col-4">
+            <div class="card border-0 shadow-sm text-center h-100">
+                <div class="card-body py-3">
+                    <p class="text-muted small mb-1">Registered Voters</p>
+                    <h4 class="fw-bold mb-0 text-primary">{{ total_registered_voters }}</h4>
+                </div>
+            </div>
+        </div>
+        <div class="col-4">
+            <div class="card border-0 shadow-sm text-center h-100">
+                <div class="card-body py-3">
+                    <p class="text-muted small mb-1">Votes Cast</p>
+                    <h4 class="fw-bold mb-0 text-success">{{ total_votes_cast }}</h4>
+                </div>
+            </div>
+        </div>
+        <div class="col-4">
+            <div class="card border-0 shadow-sm text-center h-100">
+                <div class="card-body py-3">
+                    <p class="text-muted small mb-1">Turnout</p>
+                    <h4 class="fw-bold mb-0 text-info">{{ turnout_percentage }}%</h4>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Download Button -->
+    {% if not is_auditor %}
+    <div class="d-flex justify-content-end mb-4">
+        <a href="{% url 'export_results_pdf' election.id %}"
+           class="btn btn-danger shadow-sm px-4">
+            Download Official PDF Certificate
+        </a>
+    </div>
+    {% endif %}
+
+    <!-- Results by Position -->
+    <div id="results-container">
+    {% for item in results %}
+
+    <div class="card border-0 shadow-sm mb-4 overflow-hidden">
+
+        <!-- Position Header -->
+        <div class="card-header py-3 d-flex justify-content-between align-items-center"
+             style="background: #1B5E20; color: white;">
+            <h6 class="fw-bold mb-0 text-uppercase" style="letter-spacing:1px;">
+                {{ item.position.name }}
+            </h6>
+            <span class="badge bg-light text-dark">
+                {{ item.position_total_votes }} vote{{ item.position_total_votes|pluralize }}
+            </span>
+        </div>
+
+        <div class="card-body p-4">
+
+            {% if item.is_tie %}
+            <div class="alert alert-warning py-2 small mb-3">
+                ⚠ This position ended in a tie.
+            </div>
+            {% endif %}
+
+            {% for candidate in item.candidates %}
+
+            <div class="d-flex align-items-start gap-3 mb-4 pb-3
+                        {% if not forloop.last %}border-bottom{% endif %}">
+
+                <!-- Photo -->
+                <div style="flex-shrink:0;">
+                    {% if candidate.photo %}
+                        <img src="{{ candidate.photo.url }}"
+                            width="56" height="56"
+                            style="width:56px; height:56px; object-fit:cover;
+                                    border-radius:50%;
+                                    border: 3px solid {% if not item.is_tie and item.winner and candidate.id == item.winner.id %}#C9A84C{% else %}#dee2e6{% endif %};">
+                    {% else %}
+                        <div style="width:56px; height:56px; border-radius:50%;
+                                    background:#e9ecef; display:flex;
+                                    align-items:center; justify-content:center;
+                                    font-size:20px; font-weight:700; color:#6c757d;
+                                    border: 3px solid {% if not item.is_tie and item.winner and candidate.id == item.winner.id %}#C9A84C{% else %}#dee2e6{% endif %};">
+                            {{ candidate.user.get_full_name|slice:":1"|upper|default:candidate.user.username|slice:":1"|upper }}
+                        </div>
+                    {% endif %}
+                </div>
+
+                <!-- Info -->
+                <div class="flex-grow-1">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <div>
+                            <span class="fw-bold">
+                                {{ candidate.user.get_full_name|default:candidate.user.username }}
+                            </span>
+                            {% if not item.is_tie and item.winner and candidate.id == item.winner.id %}
+                                <span class="badge ms-2 px-2 py-1"
+                                    style="background:#C9A84C; color:#1B5E20; font-size:11px;">
+                                    WINNER
+                                </span>
+                            {% endif %}
+                        </div>
+                        <span class="fw-bold small text-muted">
+                            {{ candidate.votes_count }} vote{{ candidate.votes_count|pluralize }}
+                        </span>
+                    </div>
+
+                    <!-- Progress Bar -->
+                    <div class="progress mb-1" style="height:10px; border-radius:10px;">
+                        <div class="progress-bar"
+                            role="progressbar"
+                            style="width: {{ candidate.percentage }}%;
+                                    border-radius:10px;
+                                    background: {% if not item.is_tie and item.winner and candidate.id == item.winner.id %}#C9A84C{% else %}#0d6efd{% endif %};"
+                            aria-valuenow="{{ candidate.percentage }}"
+                            aria-valuemin="0"
+                            aria-valuemax="100">
+                        </div>
+                    </div>
+
+                    <small class="text-muted">{{ candidate.percentage }}% of votes</small>
+                </div>
+
+            </div>
+
+            {% empty %}
+            <p class="text-muted text-center py-3">No candidates for this position.</p>
+            {% endfor %}
+
+        </div>
+    </div>
+
+    {% empty %}
+    <div class="alert alert-info text-center">
+        No results available yet.
+    </div>
+    {% endfor %}
+    </div>
+
+    <!-- Certification Block -->
+    <div class="card border-0 shadow-sm mt-4 mb-5 overflow-hidden">
+        <div class="card-header text-center py-3"
+             style="background:#1B5E20; color:white;">
+            <h6 class="fw-bold mb-0 text-uppercase" style="letter-spacing:2px;">
+                Official Certification
+            </h6>
+        </div>
+        <div class="card-body text-center py-4 px-4">
+
+            <p class="text-muted mb-3">
+                This is to certify that the foregoing results constitute the
+                official and final declaration of the election conducted under
+                the authority of <strong>EduVoteGH Electoral Commission</strong>.
+            </p>
+
+            <div class="row g-3 justify-content-center mb-3">
+                <div class="col-md-4">
+                    <div class="bg-light rounded p-3">
+                        <p class="text-muted small mb-1">Election</p>
+                        <p class="fw-bold mb-0 small">{{ election.title }}</p>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="bg-light rounded p-3">
+                        <p class="text-muted small mb-1">Institution</p>
+                        <p class="fw-bold mb-0 small">{{ election.institution.name }}</p>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="bg-light rounded p-3">
+                        <p class="text-muted small mb-1">Date Generated</p>
+                        <p class="fw-bold mb-0 small">{% now "F d, Y H:i" %}</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mb-3">
+                {% if election.is_closed %}
+                    <span class="badge bg-success px-4 py-2 fs-6">
+                        ✔ Final & Certified
+                    </span>
+                {% else %}
+                    <span class="badge bg-warning text-dark px-4 py-2 fs-6">
+                        ⏳ Provisional — Election Still Running
+                    </span>
+                {% endif %}
+            </div>
+
+            <hr>
+
+            <small class="text-muted">
+                Generated and secured by EduVoteGH &nbsp;|&nbsp;
+                Tamper-proof vote tracking enabled &nbsp;|&nbsp;
+                {{ election.institution.name }}
+            </small>
+
+        </div>
+    </div>
+
 </div>
 
-
-<!-- TOTAL VOTES -->
-<div class="card mb-4 shadow-sm">
-<div class="card-body text-center">
-
-<h5>Total Votes Cast</h5>
-
-<h3 class="text-primary mb-0">
-{{ total_votes_cast }}
-</h3>
-
-</div>
-</div>
-
-<div id="results-container">
-{% for item in results %}
-
-<div class="card mb-4 shadow-sm">
-
-<div class="card-header fw-bold text-center text-md-start">
-{{ item.position.name }}
-</div>
-
-<div class="card-body">
-
-{% for candidate in item.candidates %}
-
-<div class="candidate-row">
-
-<!-- IMAGE -->
-
-{% if candidate.photo %}
-<img src="{{ candidate.photo.url }}"
-width="50"
-height="50"
-style="width:50px;height:50px;object-fit:cover;border-radius:50%;flex-shrink:0;"
-class="
-{% if not item.is_tie and item.winner and candidate.id == item.winner.id %}
-winner-img
-{% endif %}
-">
-{% else %}
-<img src="https://via.placeholder.com/50"
-width="50"
-height="50"
-style="width:50px;height:50px;object-fit:cover;border-radius:50%;flex-shrink:0;">
-{% endif %}
-
-
-<div class="candidate-info">
-
-<!-- NAME -->
-<div class="candidate-name">
-
-{% if not item.is_tie and item.winner and candidate.id == item.winner.id %}
-🏆 {{ candidate.user.username }}
-{% else %}
-{{ candidate.user.username }}
-{% endif %}
-
-</div>
-
-<!-- BAR -->
-<div class="bar-container">
-
-<div class="vote-bar"
-style="width: {{ candidate.percentage }}%;
-background-color:
-{% if not item.is_tie and item.winner and candidate.id == item.winner.id %}
-#2ecc71
-{% else %}
-#3498db
-{% endif %};">
-&nbsp;
-</div>
-
-</div>
-
-<!-- VOTE TEXT -->
-<div class="vote-text">
-{{ candidate.votes_count }} votes ({{ candidate.percentage }}%)
-</div>
-
-</div> <!-- candidate-info -->
-
-</div> <!-- candidate-row -->
-
-{% endfor %}
-
-</div> <!-- card-body -->
-
-</div> <!-- card -->
-
-{% endfor %}
-
-
-<hr class="mt-5">
-
-
-<div class="card mt-4 shadow-sm border-0">
-
-<div class="card-body text-center">
-
-<h5 class="fw-bold mb-2">
-Official Election Certification
-</h5>
-
-<p class="mb-1">
-This is to certify that the above results represent the official
-outcome of the election conducted under the supervision of EduVoteGH.
-</p>
-
-<p class="mb-1">
-Election: <strong>{{ election.title }}</strong>
-</p>
-
-<p class="mb-1">
-Date Generated: <strong>{% now "F d, Y H:i" %}</strong>
-</p>
-
-<p class="mb-0">
-Status:
-
-{% if election.end_time < now %}
-
-<span class="text-success fw-bold">
-Final & Certified
-</span>
-
-{% else %}
-
-<span class="text-warning fw-bold">
-Provisional (Election Ongoing)
-</span>
-
-{% endif %}
-
-</p>
-
-<hr>
-
-<small class="text-muted">
-Generated and secured by EduVoteGH |
-Tamper-proof vote tracking enabled
-</small>
-
-</div>
-</div>
+<style>
+@keyframes rotateSeal {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
+}
+</style>
 
 <script>
-
-function refreshResults(){
-
-fetch(window.location.href)
-
-.then(response => response.text())
-
-.then(html => {
-
-const parser = new DOMParser();
-const doc = parser.parseFromString(html, "text/html");
-
-const newResults = doc.querySelector("#results-container").innerHTML;
-
-document.querySelector("#results-container").innerHTML = newResults;
-
-});
-
+// Live refresh every 10 seconds if election is still running
+{% if not election.is_closed %}
+function refreshResults() {
+    fetch(window.location.href)
+    .then(r => r.text())
+    .then(html => {
+        const doc = new DOMParser().parseFromString(html, "text/html");
+        const fresh = doc.querySelector("#results-container");
+        if (fresh) {
+            document.querySelector("#results-container").innerHTML = fresh.innerHTML;
+        }
+    })
+    .catch(() => {});
 }
-
-setInterval(refreshResults, 5000);
-
+setInterval(refreshResults, 10000);
+{% endif %}
 </script>
+
 {% endblock %}

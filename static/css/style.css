@@ -1,0 +1,23 @@
+/* Dashboard Cards */
+
+.stat-card{
+transition:0.3s;
+border-radius:10px;
+}
+
+.stat-card:hover{
+transform:translateY(-4px);
+}
+
+
+/* Election Cards */
+
+.election-card{
+border-radius:10px;
+transition:0.3s;
+}
+
+.election-card:hover{
+transform:translateY(-4px);
+box-shadow:0 10px 25px rgba(0,0,0,0.08);
+}

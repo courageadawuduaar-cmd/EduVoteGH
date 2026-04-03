@@ -1,146 +1,331 @@
 {% extends 'core/base.html' %}
-{% block title %}Admin Dashboard{% endblock %}
+{% block title %}Admin Dashboard — EduVoteGH{% endblock %}
 
 {% block content %}
-<div class="container mt-5">
+<div class="container-fluid py-4 px-4">
 
-    <!-- Page Header -->
+    <!-- Header -->
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2 class="fw-bold">Election Dashboard</h2>
-        <a href="{% url 'upload_voters' %}" class="btn btn-primary">
-            + Upload Voters
-        </a>
-        <a href="{% url 'admin_analytics' %}" class="btn btn-outline-dark">
-            Analytics
-        </a>
-
-        <a href="{% url 'admin_logs' %}" class="btn btn-outline-secondary">
-            Audit Logs
-        </a>
-        
+        <div>
+            <h2 class="fw-bold mb-0">Admin Dashboard</h2>
+            <small class="text-muted">Manage elections and monitor voting activity</small>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{% url 'upload_voters' %}" class="btn btn-primary btn-sm">
+                Upload Voters
+            </a>
+            <a href="{% url 'admin_analytics' %}" class="btn btn-outline-dark btn-sm">
+                Analytics
+            </a>
+            <a href="{% url 'admin_logs' %}" class="btn btn-outline-secondary btn-sm">
+                Audit Logs
+            </a>
+        </div>
     </div>
 
-    <!-- Summary Cards -->
-    <div class="row mb-4">
+    <!-- Alerts -->
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
 
-        <!-- Total Elections -->
-        <div class="col-md-4">
-            <div class="card shadow-sm border-0">
+    <!-- Summary Stats -->
+    <div class="row g-3 mb-4">
+
+        <div class="col-6 col-md-3">
+            <div class="card border-0 shadow-sm h-100">
                 <div class="card-body">
-                    <h6 class="text-muted">Total Elections</h6>
-                    <h3 class="fw-bold">{{ elections|length }}</h3>
+                    <p class="text-muted small mb-1">Total Elections</p>
+                    <h3 class="fw-bold mb-0">{{ elections|length }}</h3>
                 </div>
             </div>
         </div>
 
-        <!-- Active Elections -->
-        <div class="col-md-4">
-            <div class="card shadow-sm border-0">
+        <div class="col-6 col-md-3">
+            <div class="card border-0 shadow-sm h-100">
                 <div class="card-body">
-                    <h6 class="text-muted">Active Elections</h6>
-                    <h3 class="fw-bold text-success">
-                        {% if active_election %}
-                            1
-                        {% else %}
-                            0
-                        {% endif %}
-                    </h3>
+                    <p class="text-muted small mb-1">Active Elections</p>
+                    <h3 class="fw-bold mb-0 text-success">{{ active_elections_count }}</h3>
                 </div>
             </div>
         </div>
 
-        <!-- Total Voters -->
-        <div class="col-md-4">
-            <div class="card shadow-sm border-0">
+        <div class="col-6 col-md-3">
+            <div class="card border-0 shadow-sm h-100">
                 <div class="card-body">
-                    <h6 class="text-muted">Total Voters</h6>
-                    <h3 class="fw-bold">{{ total_voters|default:"0" }}</h3>
+                    <p class="text-muted small mb-1">Total Voters</p>
+                    <h3 class="fw-bold mb-0" id="voterCount">0</h3>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-6 col-md-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <p class="text-muted small mb-1">Total Votes Cast</p>
+                    <h3 class="fw-bold mb-0" id="votesCast">0</h3>
                 </div>
             </div>
         </div>
 
     </div>
 
-    <!-- Elections List -->
-    <div class="row">
-        {% for election in elections %}
-        <div class="col-md-6 mb-4">
-            <div class="card shadow border-0 h-100">
+    <!-- Active Elections Banner -->
+    {% if active_elections %}
+    <div class="mb-4">
+        <h6 class="fw-semibold text-success mb-2">
+            Currently Running
+        </h6>
+        <div class="d-flex flex-wrap gap-2">
+            {% for e in active_elections %}
+                <span class="badge bg-success fs-6 px-3 py-2">
+                    {{ e.title }}
+                </span>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Elections Table -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header bg-white border-bottom py-3">
+            <h5 class="fw-bold mb-0">All Elections</h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="ps-3">Election</th>
+                            <th>Institution</th>
+                            <th>Start</th>
+                            <th>End</th>
+                            <th>Voters</th>
+                            <th>Votes Cast</th>
+                            <th>Turnout</th>
+                            <th>Status</th>
+                            <th class="text-end pe-3">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for stat in election_stats %}
+                        <tr>
+                            <td class="ps-3 fw-semibold">{{ stat.election.title }}</td>
+                            <td class="text-muted small">{{ stat.election.institution.name }}</td>
+                            <td class="text-muted small">{{ stat.election.start_time|date:"M d, Y H:i" }}</td>
+                            <td class="text-muted small">{{ stat.election.end_time|date:"M d, Y H:i" }}</td>
+                            <td>{{ stat.voters }}</td>
+                            <td>{{ stat.votes }}</td>
+                            <td>
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="progress flex-grow-1" style="height:6px; min-width:60px;">
+                                        <div class="progress-bar bg-info"
+                                             style="width: {{ stat.turnout }}%">
+                                        </div>
+                                    </div>
+                                    <small class="text-muted">{{ stat.turnout }}%</small>
+                                </div>
+                            </td>
+                            <td>
+                                {% if stat.election.is_closed %}
+                                    <span class="badge bg-dark">Closed</span>
+                                {% elif stat.election.is_active %}
+                                    <span class="badge bg-success">Live</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">Inactive</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end pe-3">
+                                <div class="d-flex justify-content-end gap-2">
+                                    <a href="{% url 'election_results' stat.election.id %}"
+                                       class="btn btn-outline-info btn-sm">
+                                        Results
+                                    </a>
+                                    <form method="POST" class="d-inline">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="election_id" value="{{ stat.election.id }}">
+                                        {% if stat.election.is_active %}
+                                            <button name="action" value="deactivate"
+                                                    class="btn btn-danger btn-sm">
+                                                Deactivate
+                                            </button>
+                                        {% else %}
+                                            <button name="action" value="activate"
+                                                    class="btn btn-success btn-sm"
+                                                    {% if stat.election.is_closed %}disabled{% endif %}>
+                                                Activate
+                                            </button>
+                                        {% endif %}
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="9" class="text-center text-muted py-4">
+                                No elections created yet.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts Row -->
+    <div class="row g-3 mb-4">
+
+        <div class="col-md-8">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-white border-bottom py-3">
+                    <h5 class="fw-bold mb-0">Votes by Candidate</h5>
+                </div>
                 <div class="card-body">
+                    <canvas id="turnoutChart" height="120"></canvas>
+                </div>
+            </div>
+        </div>
 
-                    <!-- Title & Status -->
-                    <div class="d-flex justify-content-between align-items-center">
-                        <h5 class="fw-bold">{{ election.title }}</h5>
-
-                        {% if election.is_closed %}
-                            <span class="badge bg-dark">CLOSED</span>
-                        {% elif election.is_active %}
-                            <span class="badge bg-success">LIVE</span>
-                        {% else %}
-                            <span class="badge bg-secondary">Inactive</span>
-                        {% endif %}
-                    </div>
-
-                    <hr>
-
-                    <!-- Dates -->
-                    <p class="text-muted small">
-                        Start: {{ election.start_time|date:"M d, Y H:i" }} <br>
-                        End: {{ election.end_time|date:"M d, Y H:i" }}
-                    </p>
-
-                    <!-- 📊 Turnout -->
-                    <div class="mb-2">
-                        <strong>Turnout:</strong>
-                        {{ election.turnout_percentage }}%
-                    </div>
-
-                    <!-- Progress Bar -->
-                    <div class="progress mb-3" style="height: 8px;">
-                        <div class="progress-bar bg-info"
-                             role="progressbar"
-                             style="width: {{ election.turnout_percentage }}%;">
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-white border-bottom py-3">
+                    <h5 class="fw-bold mb-0">Voter Turnout</h5>
+                </div>
+                <div class="card-body d-flex flex-column justify-content-center align-items-center">
+                    <h1 class="fw-bold text-info mb-0" id="turnoutPercent">—</h1>
+                    <p class="text-muted small mb-3">overall turnout</p>
+                    <div class="w-100">
+                        <div class="d-flex justify-content-between small text-muted mb-1">
+                            <span>Voted</span>
+                            <span id="votesCastLabel">—</span>
+                        </div>
+                        <div class="progress mb-2" style="height:8px;">
+                            <div class="progress-bar bg-info" id="turnoutBar" style="width:0%"></div>
+                        </div>
+                        <div class="d-flex justify-content-between small text-muted">
+                            <span>Remaining</span>
+                            <span id="remainingVotersLabel">—</span>
                         </div>
                     </div>
-
-                    <!-- Action Buttons -->
-                    <div class="d-flex flex-wrap gap-2 mt-3">
-
-                        <a href="{% url 'election_results' election.id %}"
-                           class="btn btn-outline-info btn-sm">
-                            View Results
-                        </a>
-
-                        <form method="post">
-                            {% csrf_token %}
-                            <input type="hidden" name="election_id" value="{{ election.id }}">
-
-                            {% if election.is_active %}
-                                <button name="action" value="deactivate"
-                                        class="btn btn-danger btn-sm">
-                                    Deactivate
-                                </button>
-                            {% else %}
-                                <button name="action" value="activate"
-                                        class="btn btn-success btn-sm">
-                                    Activate
-                                </button>
-                            {% endif %}
-                        </form>
-
-                    </div>
-
                 </div>
             </div>
         </div>
-        {% empty %}
-        <div class="col-12">
-            <div class="alert alert-info">
-                No elections created yet.
-            </div>
+
+    </div>
+
+    <!-- Recent Audit Logs -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white border-bottom py-3 d-flex justify-content-between align-items-center">
+            <h5 class="fw-bold mb-0">Recent Activity</h5>
+            <a href="{% url 'admin_logs' %}" class="btn btn-outline-secondary btn-sm">View all</a>
         </div>
-        {% endfor %}
+        <ul class="list-group list-group-flush">
+            {% for log in logs %}
+            <li class="list-group-item d-flex justify-content-between align-items-center py-3">
+                <div>
+                    <span class="fw-semibold">{{ log.admin.username }}</span>
+                    <span class="text-muted ms-2">{{ log.action }}</span>
+                </div>
+                <small class="text-muted text-nowrap ms-3">{{ log.timestamp|timesince }} ago</small>
+            </li>
+            {% empty %}
+            <li class="list-group-item text-muted text-center py-4">No activity yet.</li>
+            {% endfor %}
+        </ul>
     </div>
 
 </div>
+
+<!-- Scripts -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+    // Voter count animation
+    const voterTarget = {{ election_stats|length|default:0 }};
+    const counter = document.getElementById("voterCount");
+
+    // Sum all voters from election_stats
+    const totalVoters = {% with total=0 %}{% for stat in election_stats %}{{ stat.voters }}{% if not forloop.last %}+{% endif %}{% endfor %}{% endwith %};
+    let count = 0;
+    const speed = Math.max(totalVoters / 60, 1);
+    function animateCounter() {
+        count += speed;
+        if (count >= totalVoters) {
+            counter.innerText = totalVoters;
+        } else {
+            counter.innerText = Math.floor(count);
+            requestAnimationFrame(animateCounter);
+        }
+    }
+    animateCounter();
+</script>
+
+<script>
+    // Bar chart — votes by candidate
+    let turnoutChart;
+
+    function loadChart() {
+        fetch("{% url 'election_stats' %}")
+        .then(res => res.json())
+        .then(data => {
+            const ctx = document.getElementById('turnoutChart').getContext('2d');
+            if (turnoutChart) {
+                turnoutChart.data.labels = data.labels;
+                turnoutChart.data.datasets[0].data = data.votes;
+                turnoutChart.update();
+                return;
+            }
+            turnoutChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: data.labels,
+                    datasets: [{
+                        label: "Votes",
+                        data: data.votes,
+                        backgroundColor: [
+                            "#36a2eb","#ff6384","#ffce56",
+                            "#4bc0c0","#9966ff","#ff9f40"
+                        ],
+                        borderWidth: 1,
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { display: false } },
+                    scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
+                }
+            });
+        });
+    }
+
+    loadChart();
+    setInterval(loadChart, 5000);
+</script>
+
+<script>
+    // Turnout donut stats
+    function updateTurnout() {
+        fetch("{% url 'turnout_data' %}")
+        .then(res => res.json())
+        .then(data => {
+            // ✅ API returns votes_cast, remaining_voters, turnout_percentage
+            document.getElementById("votesCast").innerText       = data.votes_cast;
+            document.getElementById("votesCastLabel").innerText  = data.votes_cast;
+            document.getElementById("remainingVotersLabel").innerText = data.remaining_voters;
+            document.getElementById("turnoutPercent").innerText  = data.turnout_percentage + "%";
+            document.getElementById("turnoutBar").style.width    = data.turnout_percentage + "%";
+        })
+        .catch(err => console.error("Turnout fetch error:", err));
+    }
+
+    updateTurnout();
+    setInterval(updateTurnout, 5000);
+</script>
+
 {% endblock %}

@@ -1,0 +1,24 @@
+{% extends "admin/base_site.html" %}
+
+{% block content %}
+
+<h2>Upload Voters for {{ election.title }}</h2>
+
+<form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+
+    <p>
+        Upload CSV file with columns:
+        <strong>full_name,username,phone</strong>
+    </p>
+
+    <input type="file" name="csv_file" required>
+
+    <br><br>
+
+    <button type="submit" class="button default">
+        Upload Voters
+    </button>
+</form>
+
+{% endblock %}

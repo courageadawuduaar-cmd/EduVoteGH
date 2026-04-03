@@ -12,11 +12,9 @@
         transition: 0.2s ease;
         border-radius: 6px;
     }
-
     .candidate-option:hover {
         background-color: #f8f9fa;
     }
-
     .candidate-img {
         width: 50px;
         height: 50px;
@@ -24,79 +22,238 @@
         border-radius: 50%;
         margin-right: 15px;
     }
-
     .candidate-manifesto {
         font-size: 0.85rem;
         color: #6c757d;
         margin: 0;
     }
+    .voted-badge {
+        margin-left: 10px;
+        font-size: 0.8rem;
+    }
 </style>
 
-<form method="post">
+<div class="card mb-4 shadow-sm">
+    <div class="card-body">
+
+        <div class="d-flex justify-content-between mb-1">
+            <strong>Ballot Completion</strong>
+            <span id="progressText">0%</span>
+        </div>
+
+        <div class="progress" style="height:10px;">
+            <div 
+                id="ballotProgressBar"
+                class="progress-bar bg-success"
+                role="progressbar"
+                style="width:0%">
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<form method="post" id="vote-form">
     {% csrf_token %}
 
     {% for position in positions %}
-        <div class="card mb-3 shadow-sm">
-            <div class="card-header fw-semibold">
+        <div class="card mb-3 shadow-sm" id="position-card-{{ position.id }}">
+            <div class="card-header fw-semibold" id="position-header-{{ position.id }}">
                 {{ position.name }}
                 {% if position.id in voted_positions %}
-                    <span class="badge bg-success ms-2">Already Voted</span>
+                    <span class="badge bg-success ms-2 voted-badge">Already Voted</span>
                 {% endif %}
             </div>
 
             <div class="card-body py-2">
-
                 {% for candidate in position.candidate_set.all %}
-                    <label class="d-block candidate-option p-2 mb-2">
-
+                    <label class="d-block candidate-option p-2 mb-2" data-position="{{ position.id }}" data-candidate="{{ candidate.id }}">
                         <div class="d-flex align-items-center">
-
-                            <!-- Candidate Image -->
                             {% if candidate.photo %}
-                                <img src="{{ candidate.photo.url }}"
-                                     alt="{{ candidate.user.username }}"
-                                     class="candidate-img">
+                                <img src="{{ candidate.photo.url }}" alt="{{ candidate.user.username }}" class="candidate-img">
                             {% else %}
                                 <div class="candidate-img bg-secondary"></div>
                             {% endif %}
 
-                            <!-- Candidate Info -->
                             <div class="flex-grow-1">
                                 <strong>{{ candidate.user.username }}</strong>
                                 {% if candidate.manifesto %}
-                                    <p class="candidate-manifesto">
-                                        {{ candidate.manifesto }}
-                                    </p>
+                                    <p class="candidate-manifesto">{{ candidate.manifesto }}</p>
                                 {% endif %}
                             </div>
 
-                            <!-- Radio Button -->
                             <input 
-                                class="form-check-input ms-2"
+                                class="form-check-input ms-2 position-radio"
                                 type="radio" 
                                 name="position_{{ position.id }}" 
                                 value="{{ candidate.id }}" 
                                 {% if position.id in voted_positions %}disabled{% endif %}
-                                required
                             >
-
                         </div>
-
                     </label>
                 {% endfor %}
-
             </div>
         </div>
     {% endfor %}
 
     <div class="d-flex justify-content-between mt-3">
-
-    <button type="submit" class="btn btn-primary">
-        Submit Vote
-    </button>
-
+        <button type="submit" class="btn btn-primary">Submit All Votes</button>
     </div>
 
 </form>
+
+<script>
+document.querySelectorAll('.candidate-option').forEach(function(label){
+
+    label.addEventListener('click', function(){
+
+        const radio = label.querySelector('input[type="radio"]');
+
+        if(!radio.disabled){
+            radio.checked = true;
+        }
+
+    });
+
+});
+</script>
+
+<!-- Vote Confirmation Modal -->
+<div class="modal fade" id="confirmVoteModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+
+      <div class="modal-header">
+        <h5 class="modal-title">Confirm Your Ballot</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+
+      <div class="modal-body">
+
+        <p class="fw-semibold mb-2">Selected Votes</p>
+        <ul class="list-group mb-3" id="selectedVotesList"></ul>
+
+        <p class="fw-semibold mb-2 text-danger">Skipped Positions</p>
+        <ul class="list-group mb-3" id="skippedVotesList"></ul>
+
+        <div class="alert alert-warning mb-0">
+            Once submitted, you <strong>cannot change your votes</strong>.
+        </div>
+
+    </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+          Review Votes
+        </button>
+
+        <button type="button" class="btn btn-success" id="confirmSubmit">
+          Submit Ballot
+        </button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+
+document.addEventListener("DOMContentLoaded", function(){
+
+    const form = document.getElementById("vote-form");
+
+    const votesList = document.getElementById("selectedVotesList");
+    const skippedList = document.getElementById("skippedVotesList");
+
+    const confirmModal = new bootstrap.Modal(
+        document.getElementById("confirmVoteModal")
+    );
+
+    function updateBallotProgress(){
+
+        const totalPositions = document.querySelectorAll(".card").length;
+
+        const votedPositions = document.querySelectorAll("input[type=radio]:checked").length;
+
+        const percent = Math.round((votedPositions / totalPositions) * 100);
+
+        document.getElementById("ballotProgressBar").style.width = percent + "%";
+
+        document.getElementById("progressText").textContent = percent + "% Complete";
+
+    }
+
+    document.querySelectorAll("input[type=radio]").forEach(function(radio){
+
+        radio.addEventListener("change", function(){
+
+            updateBallotProgress();
+
+        });
+
+    });
+
+    form.addEventListener("submit", function(e){
+
+        e.preventDefault();
+
+        votesList.innerHTML = "";
+        skippedList.innerHTML = "";
+
+        document.querySelectorAll("#vote-form .card").forEach(function(card){
+
+            const positionName = card.querySelector(".card-header")
+                .childNodes[0].textContent.trim();
+
+            const selected = card.querySelector("input[type=radio]:checked");
+
+            if(selected){
+
+                const candidateName = selected
+                    .closest(".candidate-option")
+                    .querySelector("strong").textContent;
+
+                const li = document.createElement("li");
+                li.classList.add("list-group-item");
+
+                li.innerHTML = `<strong>${positionName}</strong>: ${candidateName}`;
+
+                votesList.appendChild(li);
+
+            } else {
+
+                const li = document.createElement("li");
+                li.classList.add("list-group-item", "text-danger");
+
+                li.textContent = positionName;
+
+                skippedList.appendChild(li);
+
+            }
+
+        });
+
+        if(votesList.innerHTML === ""){
+            votesList.innerHTML = `<li class="list-group-item text-muted">No votes selected</li>`;
+        }
+
+        if(skippedList.innerHTML === ""){
+            skippedList.innerHTML = `<li class="list-group-item text-success">None</li>`;
+        }
+
+        confirmModal.show();
+
+    });
+
+    document.getElementById("confirmSubmit").addEventListener("click", function(){
+        form.submit();
+    });
+
+    // Initialize progress bar on page load
+    updateBallotProgress();
+
+});
+
+</script>
 
 {% endblock %}

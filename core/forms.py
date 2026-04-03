@@ -5,5 +5,15 @@ class VoterLoginForm(AuthenticationForm):
     username = forms.CharField(label="Index Number or Username")
     password = forms.CharField(widget=forms.PasswordInput)
 
+from django import forms
+from .models import Election
+
 class VoterCSVUploadForm(forms.Form):
-    csv_file = forms.FileField(label='Select CSV file')
+    election = forms.ModelChoiceField(
+        queryset=Election.objects.all(),
+        empty_label="-- Select Election --",
+        widget=forms.Select(attrs={'class': 'form-select'})
+    )
+    csv_file = forms.FileField(
+        widget=forms.ClearableFileInput(attrs={'class': 'form-control', 'accept': '.csv,.xlsx'})
+    )

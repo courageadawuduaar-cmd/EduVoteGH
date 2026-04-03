@@ -1,79 +1,250 @@
 {% extends 'core/base.html' %}
-{% block title %}Dashboard Analytics{% endblock %}
+{% block title %}Analytics — EduVoteGH{% endblock %}
 
 {% block content %}
-<div class="container mt-5">
+<div class="container-fluid py-4 px-4">
 
-    <h2 class="fw-bold mb-4">System Analytics</h2>
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold mb-0">System Analytics</h2>
+            <small class="text-muted">Overview of all elections and voter participation</small>
+        </div>
+        <a href="{% url 'admin_panel' %}" class="btn btn-outline-secondary btn-sm">
+            &larr; Back to Dashboard
+        </a>
+    </div>
 
-    <!-- Summary Cards -->
-    <div class="row mb-4">
+    <!-- Summary Stat Cards -->
+    <div class="row g-3 mb-4">
 
-        <div class="col-md-3">
-            <div class="card shadow-sm border-0">
+        <div class="col-6 col-md-3">
+            <div class="card border-0 shadow-sm h-100">
                 <div class="card-body">
-                    <h6 class="text-muted">Total Elections</h6>
-                    <h3 class="fw-bold">{{ total_elections }}</h3>
+                    <p class="text-muted small mb-1">Total Elections</p>
+                    <h3 class="fw-bold mb-0">{{ total_elections }}</h3>
                 </div>
             </div>
         </div>
 
-        <div class="col-md-3">
-            <div class="card shadow-sm border-0">
+        <div class="col-6 col-md-3">
+            <div class="card border-0 shadow-sm h-100">
                 <div class="card-body">
-                    <h6 class="text-muted">Total Voters</h6>
-                    <h3 class="fw-bold">{{ total_voters }}</h3>
+                    <p class="text-muted small mb-1">Active Elections</p>
+                    <h3 class="fw-bold mb-0 text-success">{{ active_elections_count }}</h3>
                 </div>
             </div>
         </div>
 
-        <div class="col-md-3">
-            <div class="card shadow-sm border-0">
+        <div class="col-6 col-md-3">
+            <div class="card border-0 shadow-sm h-100">
                 <div class="card-body">
-                    <h6 class="text-muted">Total Votes Cast</h6>
-                    <h3 class="fw-bold">{{ total_votes }}</h3>
+                    <p class="text-muted small mb-1">Total Voters</p>
+                    <h3 class="fw-bold mb-0">{{ total_voters }}</h3>
                 </div>
             </div>
         </div>
 
-        <div class="col-md-3">
-            <div class="card shadow-sm border-0">
+        <div class="col-6 col-md-3">
+            <div class="card border-0 shadow-sm h-100">
                 <div class="card-body">
-                    <h6 class="text-muted">Active Election</h6>
-                    <h6 class="fw-bold text-success">
-                        {% if active_election %}
-                            {{ active_election.title }}
-                        {% else %}
-                            None
-                        {% endif %}
-                    </h6>
+                    <p class="text-muted small mb-1">Total Votes Cast</p>
+                    <h3 class="fw-bold mb-0">{{ total_votes }}</h3>
                 </div>
             </div>
         </div>
 
     </div>
 
-    <!-- Turnout Section -->
-    <div class="card shadow border-0">
-        <div class="card-body">
-            <h5 class="fw-bold mb-3">Turnout by Election</h5>
+    <!-- Overall Turnout + Active Elections Row -->
+    <div class="row g-3 mb-4">
 
-            {% for item in turnout_data %}
-                <div class="mb-3">
-                    <strong>{{ item.title }}</strong>
-                    <div class="progress" style="height: 8px;">
-                        <div class="progress-bar bg-info"
-                             style="width: {{ item.turnout }}%;">
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body d-flex flex-column justify-content-center align-items-center py-4">
+                    <p class="text-muted small mb-1">Overall Turnout</p>
+                    <h1 class="fw-bold text-info mb-0">{{ overall_turnout }}%</h1>
+                    <p class="text-muted small mt-1">across all elections</p>
+                    <div class="w-100 mt-2">
+                        <div class="progress" style="height: 8px;">
+                            <div class="progress-bar bg-info"
+                                 style="width: {{ overall_turnout }}%;">
+                            </div>
                         </div>
                     </div>
-                    <small>{{ item.turnout }}%</small>
                 </div>
-            {% empty %}
-                <p class="text-muted">No elections available.</p>
-            {% endfor %}
+            </div>
+        </div>
 
+        <div class="col-md-8">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-white border-bottom py-3">
+                    <h5 class="fw-bold mb-0">Currently Active Elections</h5>
+                </div>
+                <div class="card-body">
+                    {% if active_elections %}
+                        <div class="d-flex flex-wrap gap-2">
+                            {% for e in active_elections %}
+                                <span class="badge bg-success fs-6 px-3 py-2">
+                                    {{ e.title }}
+                                </span>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <p class="text-muted mb-0">No elections are currently active.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Charts Row -->
+    <div class="row g-3 mb-4">
+
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-white border-bottom py-3">
+                    <h5 class="fw-bold mb-0">Turnout by Election</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="turnoutChart" height="200"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-white border-bottom py-3">
+                    <h5 class="fw-bold mb-0">Votes Cast by Election</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="votesChart" height="200"></canvas>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Per-Election Breakdown Table -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header bg-white border-bottom py-3">
+            <h5 class="fw-bold mb-0">Per-Election Breakdown</h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="ps-3">Election</th>
+                            <th>Institution</th>
+                            <th>Voters</th>
+                            <th>Votes Cast</th>
+                            <th>Turnout</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for stat in election_stats %}
+                        <tr>
+                            <td class="ps-3 fw-semibold">{{ stat.title }}</td>
+                            <td class="text-muted small">{{ stat.institution }}</td>
+                            <td>{{ stat.voters }}</td>
+                            <td>{{ stat.votes }}</td>
+                            <td>
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="progress flex-grow-1" style="height: 6px; min-width: 80px;">
+                                        <div class="progress-bar bg-info"
+                                             style="width: {{ stat.turnout }}%;">
+                                        </div>
+                                    </div>
+                                    <small class="text-muted">{{ stat.turnout }}%</small>
+                                </div>
+                            </td>
+                            <td>
+                                {% if stat.is_closed %}
+                                    <span class="badge bg-dark">Closed</span>
+                                {% elif stat.is_active %}
+                                    <span class="badge bg-success">Live</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">Inactive</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="text-center text-muted py-4">
+                                No elections available.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 
 </div>
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+    const turnoutLabels = {{ turnout_chart_data.labels|safe }};
+    const turnoutValues = {{ turnout_chart_data.values|safe }};
+    const votesLabels   = {{ votes_chart_data.labels|safe }};
+    const votesValues   = {{ votes_chart_data.values|safe }};
+
+    // Turnout % bar chart
+    new Chart(document.getElementById('turnoutChart'), {
+        type: 'bar',
+        data: {
+            labels: turnoutLabels,
+            datasets: [{
+                label: 'Turnout %',
+                data: turnoutValues,
+                backgroundColor: '#0dcaf0',
+                borderRadius: 4,
+                borderWidth: 0
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { display: false } },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 100,
+                    ticks: { callback: val => val + '%' }
+                }
+            }
+        }
+    });
+
+    // Votes cast bar chart
+    new Chart(document.getElementById('votesChart'), {
+        type: 'bar',
+        data: {
+            labels: votesLabels,
+            datasets: [{
+                label: 'Votes Cast',
+                data: votesValues,
+                backgroundColor: '#0d6efd',
+                borderRadius: 4,
+                borderWidth: 0
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { display: false } },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: { stepSize: 1 }
+                }
+            }
+        }
+    });
+</script>
+
 {% endblock %}
