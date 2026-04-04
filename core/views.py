@@ -820,19 +820,27 @@ def export_results_pdf(request, election_id):
     )
 
     # ─────────────────────────────────────────
-    # LOGO
+    # ─────────────────────────────────────────
+    # LOGO — institution logo first, fallback to EduVoteGH logo
     # ─────────────────────────────────────────
     logo_path = None
+    logo_url = None
+
     if election.institution.logo:
-        logo_path = election.institution.logo.path
-    else:
-        fallback = os.path.join(
-            settings.BASE_DIR, "static", "images", "logo.svg"
-        )
-        if os.path.exists(fallback):
-            logo_path = fallback
+        try:
+            # Try local path first (works locally)
+            local_path = election.institution.logo.path
+            if os.path.exists(local_path):
+                logo_path = local_path
+        except Exception:
+            # On Render/Cloudinary, .path fails — use URL instead
+            try:
+                logo_url = election.institution.logo.url
+            except Exception:
+                pass
 
     if logo_path:
+        # Local file — use directly
         try:
             logo = Image(logo_path, width=90, height=90)
             logo.hAlign = "CENTER"
@@ -841,6 +849,37 @@ def export_results_pdf(request, election_id):
         except Exception:
             pass
 
+    elif logo_url:
+        # Cloudinary URL — download it into memory first
+        try:
+            import requests as req
+            img_response = req.get(logo_url, timeout=10)
+            if img_response.status_code == 200:
+                from io import BytesIO
+                img_buffer = BytesIO(img_response.content)
+                logo = Image(img_buffer, width=90, height=90)
+                logo.hAlign = "CENTER"
+                elements.append(logo)
+                elements.append(Spacer(1, 8))
+        except Exception:
+            pass
+
+    else:
+        # No institution logo — fall back to EduVoteGH PNG logo
+        for logo_filename in ['logo.png', 'eduvote-logo..png']:
+            for base_dir in ['staticfiles', 'static']:
+                candidate = os.path.join(
+                    settings.BASE_DIR, base_dir, "images", logo_filename
+                )
+                if os.path.exists(candidate):
+                    try:
+                        logo = Image(candidate, width=90, height=90)
+                        logo.hAlign = "CENTER"
+                        elements.append(logo)
+                        elements.append(Spacer(1, 8))
+                    except Exception:
+                        pass
+                    break
     # ─────────────────────────────────────────
     # HEADER
     # ─────────────────────────────────────────
