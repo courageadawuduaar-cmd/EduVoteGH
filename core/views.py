@@ -820,26 +820,17 @@ def export_results_pdf(request, election_id):
     )
 
     # ─────────────────────────────────────────
-    # LOGO — try PNG first, SVG not supported by ReportLab
+    # LOGO
     # ─────────────────────────────────────────
     logo_path = None
-    for logo_filename in ['logo.png', 'eduvote-logo..png', 'logo.jpg']:
-        candidate_path = os.path.join(
-            settings.BASE_DIR, "static", "images", logo_filename
+    if election.institution.logo:
+        logo_path = election.institution.logo.path
+    else:
+        fallback = os.path.join(
+            settings.BASE_DIR, "static", "images", "logo.svg"
         )
-        if os.path.exists(candidate_path):
-            logo_path = candidate_path
-            break
-
-    # Also check staticfiles (collected static on Render)
-    if not logo_path:
-        for logo_filename in ['logo.png', 'eduvote-logo..png', 'logo.jpg']:
-            candidate_path = os.path.join(
-                settings.BASE_DIR, "staticfiles", "images", logo_filename
-            )
-            if os.path.exists(candidate_path):
-                logo_path = candidate_path
-                break
+        if os.path.exists(fallback):
+            logo_path = fallback
 
     if logo_path:
         try:
@@ -849,6 +840,7 @@ def export_results_pdf(request, election_id):
             elements.append(Spacer(1, 8))
         except Exception:
             pass
+
     # ─────────────────────────────────────────
     # HEADER
     # ─────────────────────────────────────────
