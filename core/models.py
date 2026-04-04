@@ -7,7 +7,7 @@ from cloudinary.models import CloudinaryField
 class Institution(models.Model):
     name = models.CharField(max_length=255)
     email = models.EmailField()
-    logo = models.ImageField(upload_to='logos/', blank=True, null=True)
+    logo = CloudinaryField('image', blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):

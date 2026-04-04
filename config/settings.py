@@ -5,9 +5,13 @@ Local Development Configuration
 
 from pathlib import Path
 import os
+from dotenv import load_dotenv
 import cloudinary
 import cloudinary.uploader
 import cloudinary.api
+
+# Load environment variables from .env file
+load_dotenv()
 
 # -------------------------------------------------
 # Base Directory
@@ -156,17 +160,15 @@ INSTALLED_APPS += [
 DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
 
 CLOUDINARY_STORAGE = {
-    'CLOUD_NAME': 'dij9vnd9e',
-    'API_KEY': '266281665234432',
-    'API_SECRET': 'N2rRq782IXMw6HhTt9iapyExMCQ',
+    'CLOUD_NAME': os.environ.get('CLOUDINARY_CLOUD_NAME'),
+    'API_KEY': os.environ.get('CLOUDINARY_API_KEY'),
+    'API_SECRET': os.environ.get('CLOUDINARY_API_SECRET'),
 }
-
 import cloudinary
-
 cloudinary.config(
-    cloud_name='dij9vnd9e',
-    api_key='266281665234432',
-    api_secret='N2rRq782IXMw6HhTt9iapyExMCQ',
+    cloud_name=os.environ.get('CLOUDINARY_CLOUD_NAME'),
+    api_key=os.environ.get('CLOUDINARY_API_KEY'),
+    api_secret=os.environ.get('CLOUDINARY_API_SECRET'),
 )
 
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
