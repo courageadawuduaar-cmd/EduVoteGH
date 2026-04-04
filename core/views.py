@@ -84,10 +84,12 @@ def voter_login(request):
             login(request, user)
             return redirect('vote_dashboard')
         else:
-            messages.error(request, "Invalid username or password")
+            # ✅ Axes tracks failed attempts automatically via middleware
+            messages.error(request, "Invalid username or password. "
+                           "You will be locked out after 5 failed attempts.")
     else:
         form = VoterLoginForm()
-    
+
     return render(request, 'core/login.html', {'form': form})
 
 
@@ -463,7 +465,9 @@ def upload_voters(request):
                     skipped.append(username)
                     continue
 
-                password = 'EV' + ''.join(random.choices(string.digits, k=6))
+                password = 'EV' + ''.join(random.choices(
+                    string.ascii_uppercase + string.digits, k=8
+                ))
                 user = User(
                     username=username,
                     first_name=full_name,

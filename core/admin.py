@@ -84,7 +84,9 @@ class ElectionAdmin(admin.ModelAdmin):
                 last_name = " ".join(full_name.split()[1:]) if full_name else ""
 
                 # Generate password
-                password = "EV" + ''.join(random.choices(string.digits, k=6))
+                password = 'EV' + ''.join(random.choices(
+                    string.ascii_uppercase + string.digits, k=8
+                ))
 
                 user, user_created = User.objects.get_or_create(
                     username=username,

@@ -51,6 +51,7 @@ INSTALLED_APPS = [
     # Local Apps
     'core',
     'pages',
+    'axes',
 ]
 
 
@@ -63,6 +64,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'axes.middleware.AxesMiddleware',
 ]
 
 
@@ -109,6 +111,28 @@ AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator'},
     {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
 ]
+
+
+# ─────────────────────────────────────────
+# AXES — Login Rate Limiting
+# ─────────────────────────────────────────
+AUTHENTICATION_BACKENDS = [
+    'axes.backends.AxesStandaloneBackend',
+    'django.contrib.auth.backends.ModelBackend',
+]
+AXES_FAILURE_LIMIT = 5              # lock after 5 failed attempts
+AXES_COOLOFF_TIME = 1               # lock for 1 hour
+AXES_LOCKOUT_PARAMETERS = ['username', 'ip_address']
+AXES_RESET_ON_SUCCESS = True        # reset count after successful login
+AXES_LOCKOUT_TEMPLATE = 'core/lockout.html'  # custom lockout page
+
+
+# ─────────────────────────────────────────
+# SESSION SECURITY
+# ─────────────────────────────────────────
+SESSION_COOKIE_AGE = 3600              # session expires after 1 hour
+SESSION_EXPIRE_AT_BROWSER_CLOSE = True # session expires when browser closes
+SESSION_SAVE_EVERY_REQUEST = True      # reset timer on every request
 
 
 # -------------------------------------------------
@@ -174,3 +198,18 @@ cloudinary.config(
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 
 DEFAULT_FROM_EMAIL = "eduvote.gh@gmail.com"
+
+
+# ─────────────────────────────────────────
+# SECURITY HEADERS (Production)
+# ─────────────────────────────────────────
+if not DEBUG:
+    SECURE_SSL_REDIRECT = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_HSTS_SECONDS = 31536000
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+    SECURE_BROWSER_XSS_FILTER = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    X_FRAME_OPTIONS = 'DENY'

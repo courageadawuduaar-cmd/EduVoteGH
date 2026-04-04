@@ -1,0 +1,49 @@
+{% extends 'core/base.html' %}
+{% block title %}Account Locked — EduVoteGH{% endblock %}
+
+{% block content %}
+<div class="container py-5" style="max-width: 520px;">
+
+    <div class="text-center mb-4">
+        <div style="width:80px; height:80px; border-radius:50%;
+                    background:#dc3545; display:flex; align-items:center;
+                    justify-content:center; margin:0 auto 16px;">
+            <span style="font-size:36px; color:white;">🔒</span>
+        </div>
+        <h3 class="fw-bold text-danger mb-1">Account Temporarily Locked</h3>
+        <p class="text-muted">
+            Too many failed login attempts have been detected.
+        </p>
+    </div>
+
+    <div class="card border-0 shadow-sm" style="border-radius:16px;">
+        <div class="card-body p-4 text-center">
+
+            <p class="mb-3">
+                Your account has been locked for <strong>1 hour</strong>
+                due to <strong>5 consecutive failed login attempts</strong>.
+            </p>
+
+            <div class="alert alert-warning py-2 small mb-3">
+                If this was not you, please contact your school administrator
+                immediately.
+            </div>
+
+            <p class="text-muted small mb-4">
+                After 1 hour, you can try logging in again. Make sure you are
+                using the correct username and password from your credentials sheet.
+            </p>
+
+            <a href="{% url 'home' %}" class="btn btn-outline-secondary px-4">
+                Return to Home
+            </a>
+
+        </div>
+    </div>
+
+    <p class="text-center text-muted small mt-3">
+        Need help? Contact your school administrator.
+    </p>
+
+</div>
+{% endblock %}
