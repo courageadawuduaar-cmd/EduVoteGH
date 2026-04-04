@@ -823,49 +823,40 @@ def export_results_pdf(request, election_id):
     # ─────────────────────────────────────────
     # LOGO — institution logo first, fallback to EduVoteGH logo
     # ─────────────────────────────────────────
-    logo_path = None
-    logo_url = None
+    logo_added = False
 
     if election.institution.logo:
+        # Try local path first (works locally)
         try:
-            # Try local path first (works locally)
             local_path = election.institution.logo.path
             if os.path.exists(local_path):
-                logo_path = local_path
-        except Exception:
-            # On Render/Cloudinary, .path fails — use URL instead
-            try:
-                logo_url = election.institution.logo.url
-            except Exception:
-                pass
-
-    if logo_path:
-        # Local file — use directly
-        try:
-            logo = Image(logo_path, width=90, height=90)
-            logo.hAlign = "CENTER"
-            elements.append(logo)
-            elements.append(Spacer(1, 8))
-        except Exception:
-            pass
-
-    elif logo_url:
-        # Cloudinary URL — download it into memory first
-        try:
-            import requests as req
-            img_response = req.get(logo_url, timeout=10)
-            if img_response.status_code == 200:
-                from io import BytesIO
-                img_buffer = BytesIO(img_response.content)
-                logo = Image(img_buffer, width=90, height=90)
+                logo = Image(local_path, width=90, height=90)
                 logo.hAlign = "CENTER"
                 elements.append(logo)
                 elements.append(Spacer(1, 8))
+                logo_added = True
         except Exception:
             pass
 
-    else:
-        # No institution logo — fall back to EduVoteGH PNG logo
+        # If local path failed, try Cloudinary URL (works on Render)
+        if not logo_added:
+            try:
+                import requests as req
+                from io import BytesIO
+                logo_url = election.institution.logo.url
+                img_response = req.get(logo_url, timeout=10)
+                if img_response.status_code == 200:
+                    img_buffer = BytesIO(img_response.content)
+                    logo = Image(img_buffer, width=90, height=90)
+                    logo.hAlign = "CENTER"
+                    elements.append(logo)
+                    elements.append(Spacer(1, 8))
+                    logo_added = True
+            except Exception:
+                pass
+
+    # Only use EduVoteGH fallback if NO institution logo was added
+    if not logo_added:
         for logo_filename in ['logo.png', 'eduvote-logo..png']:
             for base_dir in ['staticfiles', 'static']:
                 candidate = os.path.join(
@@ -877,9 +868,13 @@ def export_results_pdf(request, election_id):
                         logo.hAlign = "CENTER"
                         elements.append(logo)
                         elements.append(Spacer(1, 8))
+                        logo_added = True
                     except Exception:
                         pass
-                    break
+                    if logo_added:
+                        break
+            if logo_added:
+                break
     # ─────────────────────────────────────────
     # HEADER
     # ─────────────────────────────────────────
