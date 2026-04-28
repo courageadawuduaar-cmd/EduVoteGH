@@ -2,6 +2,7 @@ from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
 from cloudinary.models import CloudinaryField
+import uuid
 
 
 class Institution(models.Model):
@@ -61,12 +62,10 @@ class Election(models.Model):
     # 📊 Turnout percentage
     def turnout_percentage(self):
         total_voters = self.voters.count()
-        total_votes = self.vote_set.count()
-
+        voted = Vote.objects.filter(election=self).values('voter').distinct().count()
         if total_voters == 0:
             return 0
-
-        return (total_votes / total_voters) * 100
+        return round((voted / total_voters) * 100, 1)
 
 
 class Position(models.Model):
@@ -111,8 +110,6 @@ class Voter(models.Model):
     def __str__(self):
         return self.user.username
 
-import uuid
-from django.db import models
 
 class Vote(models.Model):
     voter = models.ForeignKey(Voter, on_delete=models.CASCADE, db_index=True)

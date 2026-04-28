@@ -338,7 +338,7 @@ def election_results(request, election_id):
     total_registered_voters = election.voters.count()
 
     # Total votes cast across all positions in this election
-    total_votes_cast = Vote.objects.filter(election=election).count()
+    total_votes_cast = Vote.objects.filter(election=election).values('voter').distinct().count()
 
     # Turnout percentage
     turnout_percentage = (
@@ -609,7 +609,7 @@ def admin_panel(request):
     election_stats = []
     for election in elections:
         voters = election.voters.count()
-        votes = Vote.objects.filter(election=election).count()
+        votes = Vote.objects.filter(election=election).values('voter').distinct().count()
         remaining = voters - votes
         turnout = round((votes / voters) * 100, 2) if voters > 0 else 0
 
@@ -652,28 +652,31 @@ def admin_logs(request):
 
 # ------------------------
 # DASHBOARD ANALYTICS
-# ------------------------
-@staff_member_required
+# ------------------------@staff_member_required
 def admin_analytics(request):
     elections = Election.objects.all().order_by('-created_at')
     now = timezone.now()
 
-    # ✅ All active elections, not just the first one
     active_elections = Election.objects.filter(is_active=True)
     active_elections_count = active_elections.count()
 
     total_elections = elections.count()
     total_voters = Voter.objects.count()
-    total_votes = Vote.objects.count()
+    
+    # ✅ FIX 1: count distinct voters who voted, not total vote rows
+    total_votes = Vote.objects.values('voter').distinct().count()
 
-    # Overall turnout percentage across all elections
-    overall_turnout = round((total_votes / total_voters) * 100, 2) if total_voters > 0 else 0
+    # ✅ FIX 2: overall turnout based on distinct voters who voted
+    voted_voters = Vote.objects.values('voter').distinct().count()
+    overall_turnout = round((voted_voters / total_voters) * 100, 2) if total_voters > 0 else 0
 
     # Per-election stats
     election_stats = []
     for election in elections:
         voters = election.voters.count()
-        votes = Vote.objects.filter(election=election).count()
+        
+        # ✅ FIX 3: distinct voters per election, not total vote rows
+        votes = Vote.objects.filter(election=election).values('voter').distinct().count()
         turnout = round((votes / voters) * 100, 2) if voters > 0 else 0
 
         election_stats.append({
@@ -688,13 +691,12 @@ def admin_analytics(request):
             "end_time": election.end_time,
         })
 
-    # Turnout data for chart — title + turnout percentage per election
+    # ✅ FIX 4: chart now uses corrected votes values from above
     turnout_chart_data = {
         "labels": [s["title"] for s in election_stats],
         "values": [s["turnout"] for s in election_stats],
     }
 
-    # Votes per election for bar chart
     votes_chart_data = {
         "labels": [s["title"] for s in election_stats],
         "values": [s["votes"] for s in election_stats],
@@ -702,14 +704,14 @@ def admin_analytics(request):
 
     context = {
         "total_elections": total_elections,
-        "active_elections": active_elections,           # ✅ queryset not .first()
+        "active_elections": active_elections,
         "active_elections_count": active_elections_count,
         "total_voters": total_voters,
         "total_votes": total_votes,
         "overall_turnout": overall_turnout,
         "election_stats": election_stats,
-        "turnout_chart_data": turnout_chart_data,       # ✅ ready for Chart.js
-        "votes_chart_data": votes_chart_data,           # ✅ ready for Chart.js
+        "turnout_chart_data": turnout_chart_data,
+        "votes_chart_data": votes_chart_data,
     }
 
     return render(request, "core/admin_analytics.html", context)
@@ -727,13 +729,14 @@ def add_watermark(canvas_obj, doc):
 
     canvas_obj.restoreState()
 
+@staff_member_required
 def export_results_pdf(request, election_id):
     election = get_object_or_404(Election, id=election_id)
     positions = Position.objects.filter(election=election)
 
     # Calculations
     total_registered_voters = Voter.objects.filter(elections=election).count()
-    total_votes_cast = Vote.objects.filter(election=election).count()
+    total_votes_cast = Vote.objects.filter(election=election).values('voter').distinct().count()
     turnout_percentage = (
         round((total_votes_cast / total_registered_voters) * 100, 2)
         if total_registered_voters > 0 else 0
@@ -782,11 +785,12 @@ def export_results_pdf(request, election_id):
     subtitle_style = ParagraphStyle(
         'Subtitle',
         parent=styles['Normal'],
-        fontSize=11,
+        fontSize=9,
         fontName='Helvetica',
         textColor=MID_GREY,
         alignment=1,
-        spaceAfter=4,
+        spaceBefore=4,
+        spaceAfter=10,
     )
     cert_title_style = ParagraphStyle(
         'CertTitle',
@@ -885,6 +889,7 @@ def export_results_pdf(request, election_id):
     elements.append(Paragraph(
         election.institution.name.upper(), title_style
     ))
+    elements.append(Spacer(1, 6))
     elements.append(Paragraph("EduVoteGH Electoral Commission", subtitle_style))
     elements.append(Spacer(1, 6))
     elements.append(Paragraph(
@@ -1192,10 +1197,8 @@ def export_results_pdf(request, election_id):
         canvas_obj.setFont("Helvetica", 8)
         canvas_obj.setFillColor(colors.HexColor('#888888'))
         canvas_obj.drawCentredString(
-            A4[0]/2, 12,
-            f"EduVoteGH Electoral Commission  |  "
-            f"Reference: EVGH-{verification_id}  |  "
-            f"Page {doc.page}"
+            A4[0]/2, 35,
+            f"EduVoteGH Electoral Commission   |   Page {doc.page}"
         )
 
     doc.build(
@@ -1267,6 +1270,7 @@ def home(request):
         'now': now
     })
 
+@staff_member_required
 def election_stats_api(request):
     active_elections = Election.objects.filter(is_active=True)
 
@@ -1297,10 +1301,10 @@ def election_stats_api(request):
         "votes": votes
     })
 
-
+@staff_member_required
 def live_results(request, election_id):
 
-    election = Election.objects.get(id=election_id)
+    election = get_object_or_404(Election, id=election_id)
 
     candidates = Candidate.objects.filter(election=election)
 
@@ -1341,7 +1345,7 @@ def turnout_data(request):
 
     total_votes = Vote.objects.filter(
         election__in=active_elections
-    ).count()
+    ).values('voter').distinct().count()
 
     remaining = total_voters - total_votes
 
@@ -1721,16 +1725,16 @@ def download_vote_receipt(request, election_id):
 
         # Double border
         canvas_obj.setLineWidth(3)
-        canvas_obj.setStrokeColor(DARK_GREEN)
+        canvas_obj.setStrokeColor(colors.HexColor('#1B5E20'))
         canvas_obj.rect(20, 20, A4[0]-40, A4[1]-40)
         canvas_obj.setLineWidth(1)
-        canvas_obj.setStrokeColor(GOLD)
+        canvas_obj.setStrokeColor(colors.HexColor('#C9A84C'))
         canvas_obj.rect(26, 26, A4[0]-52, A4[1]-52)
 
-        # Watermark
-        canvas_obj.setFont("Helvetica-Bold", 60)
-        canvas_obj.setFillColor(DARK_GREEN)
-        canvas_obj.setFillAlpha(0.05)
+        # Watermark text
+        canvas_obj.setFont("Helvetica-Bold", 65)
+        canvas_obj.setFillColor(colors.HexColor('#1B5E20'))
+        canvas_obj.setFillAlpha(0.06)
         canvas_obj.translate(A4[0]/2, A4[1]/2)
         canvas_obj.rotate(45)
         canvas_obj.drawCentredString(0, 0, "EDUVOTEGH")
@@ -1739,14 +1743,12 @@ def download_vote_receipt(request, election_id):
 
         canvas_obj.restoreState()
 
-        # Footer
+        # Footer — single clean line with enough margin from bottom
         canvas_obj.setFont("Helvetica", 8)
-        canvas_obj.setFillColor(MID_GREY)
+        canvas_obj.setFillColor(colors.HexColor('#888888'))
         canvas_obj.drawCentredString(
-            A4[0]/2, 12,
-            f"EduVoteGH Official Vote Receipt  |  "
-            f"{voter.user.username}  |  "
-            f"Page {doc.page}"
+            A4[0]/2, 35,
+            f"EduVoteGH Electoral Commission   |   Reference: EVGH-{verification_id}   |   Page {doc.page}"
         )
 
     doc.build(
